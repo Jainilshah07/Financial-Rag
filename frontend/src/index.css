@@ -2,3 +2,46 @@ body {
   margin: 0;
   background: #f5f5f5;
 }
+
+/* Ask page: fixed-height workbench so the whole pipeline fits one screen */
+.workbench {
+  min-height: 480px;
+}
+@media (min-width: 992px) {
+  .workbench {
+    height: calc(100vh - 290px);
+  }
+}
+
+.answer-card {
+  min-height: 120px;
+  max-height: 300px;
+}
+@media (min-width: 992px) {
+  .answer-card {
+    max-height: calc((100vh - 290px) * 0.4);
+  }
+}
+
+@keyframes chunk-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.chunk-in {
+  animation: chunk-in 0.35s ease both;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.cursor {
+  animation: blink 1s steps(1) infinite;
+}

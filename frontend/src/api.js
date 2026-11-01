@@ -33,9 +33,11 @@ export function listStrategies() {
   return request('/strategies')
 }
 
-// POST /ask streams Server-Sent Events: `route` (rag | greeting | out_of_scope),
-// `retrieval` (chunks, rag only), `token` (answer text), `done`, or `error`. EventSource only supports GET, so we read the stream by hand.
-export async function askStream({ question, strategy, documentId }, { onRoute, onRetrieval, onToken, signal }) {
+// POST /ask streams Server-Sent Events: `retrieval` (chunks), `token` (answer text),
+// `done`, or `error`.
+// Every payload carries `elapsed_ms` since the request started.
+// onEvent(name, payload) is called for each one except `error`, which throws. EventSource only supports GET, so we read the stream by hand.
+export async function askStream({ question, strategy, documentId }, { onEvent, signal }) {
   const res = await fetch(`${BASE_URL}/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -56,10 +58,8 @@ export async function askStream({ question, strategy, documentId }, { onRoute, o
       else if (line.startsWith('data: ')) data += line.slice(6)
     }
     const payload = data ? JSON.parse(data) : {}
-    if (event === 'route') onRoute(payload.route)
-    else if (event === 'retrieval') onRetrieval(payload.chunks)
-    else if (event === 'token') onToken(payload.text)
-    else if (event === 'error') throw new Error(payload.detail)
+    if (event === 'error') throw new Error(payload.detail)
+    onEvent(event, payload)
   }
 
   while (true) {

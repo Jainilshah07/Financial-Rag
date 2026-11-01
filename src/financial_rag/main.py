@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -19,7 +20,6 @@ from financial_rag.vector_store import (
 )
 from financial_rag.rag import stream_answer
 from financial_rag.retrieval import STRATEGIES, list_strategies, retrieve
-from financial_rag.router import route_question
 
 
 app = FastAPI(title="Financial Document RAG")
@@ -38,7 +38,10 @@ class AskRequest(BaseModel):
     document_id: str | None = None
 
 
-def sse(event: str, data: dict) -> str:
+def sse(event: str, data: dict, started: float | None = None) -> str:
+    # `elapsed_ms` (time since the request started) lets the UI show real step timings
+    if started is not None:
+        data = {**data, "elapsed_ms": round((time.perf_counter() - started) * 1000)}
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
@@ -134,41 +137,32 @@ def strategies():
 
 @app.post("/ask")
 def ask(request: AskRequest):
-    """Server-Sent Events: a `route` event (rag | greeting | out_of_scope). For
-    `rag`: a `retrieval` event with the chunks, then `token` events with the answer.
-    Otherwise just the router's reply as `token`. Ends with `done` (or `error`)."""
+    """Server-Sent Events: a `retrieval` event with the chunks, then `token` events
+    with the answer, then `done` (or `error`). Greetings, off-topic questions and
+    injection attempts are handled by the answer prompt itself (see rag.py)."""
     if request.strategy not in STRATEGIES:
         raise HTTPException(status_code=400, detail="Unknown retrieval strategy")
 
     def events():
         vector_store = None
+        started = time.perf_counter()
+
+        def emit(event: str, data: dict) -> str:
+            return sse(event, data, started)
+
         try:
-            decision = route_question(request.question)
-            yield sse("route", {"route": decision.route})
-
-            if decision.route != "rag":
-                yield sse("token", {"text": decision.reply})
-                yield sse("done", {})
-                return
-
             vector_store = open_vector_store()
             chunks = retrieve(
                 vector_store, request.strategy, request.question, request.document_id
             )
-            yield sse("retrieval", {"strategy": request.strategy, "chunks": chunks})
+            yield emit("retrieval", {"strategy": request.strategy, "chunks": chunks})
 
-            if chunks:
-                for text in stream_answer(chunks, request.question):
-                    yield sse("token", {"text": text})
-            else:
-                yield sse(
-                    "token",
-                    {"text": "I could not find relevant information in the selected documents."},
-                )
+            for text in stream_answer(chunks, request.question):
+                yield emit("token", {"text": text})
 
-            yield sse("done", {})
+            yield emit("done", {})
         except Exception as e:
-            yield sse("error", {"detail": str(e)})
+            yield emit("error", {"detail": str(e)})
         finally:
             if vector_store:
                 vector_store.client.close()

@@ -1,0 +1,634 @@
+[
+  {
+    "doc_id": "po-po-2026-27-0101",
+    "file": "po-po-2026-27-0101.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0101",
+    "vendor": "Kumar Office Solutions Pvt Ltd",
+    "vendor_gstin": "27AAFCK7310Q1Z2",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-04-14",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "Laptop - Dell Latitude 5450, Intel Core i5, 16 GB RAM, 512 GB SSD",
+        "hsn": "8471",
+        "qty": "10",
+        "unit": "Nos",
+        "rate": "50000",
+        "amount": "500000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Laptop backpack, padded, 15.6 inch",
+        "hsn": "4202",
+        "qty": "10",
+        "unit": "Nos",
+        "rate": "1200",
+        "amount": "12000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "512000.00",
+    "tax": "92160.00",
+    "round_off": "0.00",
+    "total": "604160",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-kos-26-27-0457",
+    "file": "invoice-kos-26-27-0457.pdf",
+    "doc_type": "invoice",
+    "number": "KOS/26-27/0457",
+    "vendor": "Kumar Office Solutions Pvt Ltd",
+    "vendor_gstin": "27AAFCK7310Q1Z2",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-04-23",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "Laptop - Dell Latitude 5450, Intel Core i5, 16 GB RAM, 512 GB SSD",
+        "hsn": "8471",
+        "qty": "10",
+        "unit": "Nos",
+        "rate": "50000",
+        "amount": "500000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Laptop backpack, padded, 15.6 inch",
+        "hsn": "4202",
+        "qty": "10",
+        "unit": "Nos",
+        "rate": "1200",
+        "amount": "12000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "512000.00",
+    "tax": "92160.00",
+    "round_off": "0.00",
+    "total": "604160",
+    "pages": 1,
+    "po_number": "PO/2026-27/0101",
+    "invoice_date": "2026-04-23",
+    "due_date": "2026-06-07",
+    "planted_mismatches": {}
+  },
+  {
+    "doc_id": "po-po-2026-27-0102",
+    "file": "po-po-2026-27-0102.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0102",
+    "vendor": "Sunrise Electronics LLP",
+    "vendor_gstin": "29AAQFS2289K1ZD",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-05-06",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "LED monitor, 24 inch, Full HD, IPS panel, HDMI and DisplayPort",
+        "hsn": "8528",
+        "qty": "25",
+        "unit": "Nos",
+        "rate": "9800",
+        "amount": "245000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "HDMI cable, 1.5 metre, braided",
+        "hsn": "8544",
+        "qty": "25",
+        "unit": "Nos",
+        "rate": "350",
+        "amount": "8750.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "253750.00",
+    "tax": "45675.00",
+    "round_off": "0.00",
+    "total": "299425",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-se-inv-2026-0789",
+    "file": "invoice-se-inv-2026-0789.pdf",
+    "doc_type": "invoice",
+    "number": "SE/INV/2026/0789",
+    "vendor": "Sunrise Electronics LLP",
+    "vendor_gstin": "29AAQFS2289K1ZD",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-05-18",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "LED monitor, 24 inch, Full HD, IPS panel, HDMI and DisplayPort",
+        "hsn": "8528",
+        "qty": "25",
+        "unit": "Nos",
+        "rate": "9800",
+        "amount": "245000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "HDMI cable, 1.5 metre, braided",
+        "hsn": "8544",
+        "qty": "25",
+        "unit": "Nos",
+        "rate": "350",
+        "amount": "8750.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "253750.00",
+    "tax": "45675.00",
+    "round_off": "0.00",
+    "total": "299425",
+    "pages": 1,
+    "po_number": "PO/2026-27/0102",
+    "invoice_date": "2026-05-18",
+    "due_date": "2026-06-17",
+    "planted_mismatches": {}
+  },
+  {
+    "doc_id": "po-po-2026-27-0103",
+    "file": "po-po-2026-27-0103.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0103",
+    "vendor": "Bharat Steel Traders",
+    "vendor_gstin": "27AAJFB5562L1ZK",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-06-02",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "TMT bars Fe500D, 12 mm diameter",
+        "hsn": "7214",
+        "qty": "18",
+        "unit": "MT",
+        "rate": "56500",
+        "amount": "1017000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Binding wire, 18 gauge, annealed",
+        "hsn": "7217",
+        "qty": "500",
+        "unit": "Kg",
+        "rate": "78",
+        "amount": "39000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "1056000.00",
+    "tax": "190080.00",
+    "round_off": "0.00",
+    "total": "1246080",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-bst-1123",
+    "file": "invoice-bst-1123.pdf",
+    "doc_type": "invoice",
+    "number": "BST-1123",
+    "vendor": "Bharat Steel Traders",
+    "vendor_gstin": "27AAJFB5562L1ZK",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-06-08",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "TMT bars Fe500D, 12 mm diameter",
+        "hsn": "7214",
+        "qty": "18",
+        "unit": "MT",
+        "rate": "56500",
+        "amount": "1017000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Binding wire, 18 gauge, annealed",
+        "hsn": "7217",
+        "qty": "500",
+        "unit": "Kg",
+        "rate": "78",
+        "amount": "39000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "1056000.00",
+    "tax": "190080.00",
+    "round_off": "0.00",
+    "total": "1246080",
+    "pages": 1,
+    "po_number": "PO/2026-27/0103",
+    "invoice_date": "2026-06-08",
+    "due_date": "2026-08-07",
+    "planted_mismatches": {}
+  },
+  {
+    "doc_id": "po-po-2026-27-0104",
+    "file": "po-po-2026-27-0104.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0104",
+    "vendor": "Ganesh Packaging Industries",
+    "vendor_gstin": "24AAKFG9902C1Z7",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-06-25",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "Corrugated box, 5-ply, 600 x 400 x 400 mm, brown kraft",
+        "hsn": "4819",
+        "qty": "4000",
+        "unit": "Nos",
+        "rate": "42",
+        "amount": "168000.00",
+        "gst_pct": 12
+      },
+      {
+        "desc": "Stretch film roll, 23 micron, 500 mm width",
+        "hsn": "3920",
+        "qty": "120",
+        "unit": "Rolls",
+        "rate": "650",
+        "amount": "78000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "246000.00",
+    "tax": "34200.00",
+    "round_off": "0.00",
+    "total": "280200",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-gpi-2026-27-0342",
+    "file": "invoice-gpi-2026-27-0342.pdf",
+    "doc_type": "invoice",
+    "number": "GPI/2026-27/0342",
+    "vendor": "Ganesh Packaging Industries",
+    "vendor_gstin": "24AAKFG9902C1Z7",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-07-13",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "Corrugated box, 5-ply, 600 x 400 x 400 mm, brown kraft",
+        "hsn": "4819",
+        "qty": "4000",
+        "unit": "Nos",
+        "rate": "42",
+        "amount": "168000.00",
+        "gst_pct": 12
+      },
+      {
+        "desc": "Stretch film roll, 23 micron, 500 mm width",
+        "hsn": "3920",
+        "qty": "120",
+        "unit": "Rolls",
+        "rate": "650",
+        "amount": "78000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "246000.00",
+    "tax": "34200.00",
+    "round_off": "0.00",
+    "total": "280200",
+    "pages": 1,
+    "po_number": "PO/2026-27/0104",
+    "invoice_date": "2026-07-13",
+    "due_date": "2026-08-27",
+    "planted_mismatches": {}
+  },
+  {
+    "doc_id": "po-po-2026-27-0105",
+    "file": "po-po-2026-27-0105.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0105",
+    "vendor": "Nimbus IT Services Pvt Ltd",
+    "vendor_gstin": "36AADCN4471B1ZP",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-07-15",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "Annual IT support and maintenance services for head office and site offices",
+        "hsn": "998713",
+        "qty": "12",
+        "unit": "Months",
+        "rate": "45000",
+        "amount": "540000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Network firewall configuration and security audit",
+        "hsn": "998316",
+        "qty": "1",
+        "unit": "Job",
+        "rate": "85000",
+        "amount": "85000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "625000.00",
+    "tax": "112500.00",
+    "round_off": "0.00",
+    "total": "737500",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-nit-2026-0518",
+    "file": "invoice-nit-2026-0518.pdf",
+    "doc_type": "invoice",
+    "number": "NIT/2026/0518",
+    "vendor": "Nimbus IT Services Pvt Ltd",
+    "vendor_gstin": "36AADCN4471B1ZP",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-08-04",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "Annual IT support and maintenance services for head office and site offices",
+        "hsn": "998713",
+        "qty": "12",
+        "unit": "Months",
+        "rate": "45000",
+        "amount": "540000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Network firewall configuration and security audit",
+        "hsn": "998316",
+        "qty": "1",
+        "unit": "Job",
+        "rate": "85000",
+        "amount": "85000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "625000.00",
+    "tax": "112500.00",
+    "round_off": "0.00",
+    "total": "737500",
+    "pages": 1,
+    "po_number": "PO/2026-27/0105",
+    "invoice_date": "2026-08-04",
+    "due_date": "2026-09-03",
+    "planted_mismatches": {}
+  },
+  {
+    "doc_id": "po-po-2026-27-0106",
+    "file": "po-po-2026-27-0106.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0106",
+    "vendor": "Kumar Office Solutions Pvt Ltd",
+    "vendor_gstin": "27AAFCK7310Q1Z2",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-08-11",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "Ergonomic office chair, mesh back, adjustable armrests",
+        "hsn": "9401",
+        "qty": "40",
+        "unit": "Nos",
+        "rate": "7450",
+        "amount": "298000.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Workstation desk, 1500 x 750 mm, with cable tray",
+        "hsn": "9403",
+        "qty": "20",
+        "unit": "Nos",
+        "rate": "14200",
+        "amount": "284000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "582000.00",
+    "tax": "104760.00",
+    "round_off": "0.00",
+    "total": "686760",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-kos-26-27-0631",
+    "file": "invoice-kos-26-27-0631.pdf",
+    "doc_type": "invoice",
+    "number": "KOS/26-27/0631",
+    "vendor": "Kumar Office Solutions Pvt Ltd",
+    "vendor_gstin": "27AAFCK7310Q1Z2",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-08-30",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "Ergonomic office chair, mesh back, adjustable armrests",
+        "hsn": "9401",
+        "qty": "42",
+        "unit": "Nos",
+        "rate": "7450",
+        "amount": "312900.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Workstation desk, 1500 x 750 mm, with cable tray",
+        "hsn": "9403",
+        "qty": "20",
+        "unit": "Nos",
+        "rate": "14200",
+        "amount": "284000.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "596900.00",
+    "tax": "107442.00",
+    "round_off": "0.00",
+    "total": "704342",
+    "pages": 1,
+    "po_number": "PO/2026-27/0106",
+    "invoice_date": "2026-08-30",
+    "due_date": "2026-10-29",
+    "planted_mismatches": {
+      "0": {
+        "qty": "42"
+      }
+    }
+  },
+  {
+    "doc_id": "po-po-2026-27-0107",
+    "file": "po-po-2026-27-0107.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0107",
+    "vendor": "Sunrise Electronics LLP",
+    "vendor_gstin": "29AAQFS2289K1ZD",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-09-03",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "Laser printer - HP LaserJet Pro, duplex, network enabled",
+        "hsn": "8443",
+        "qty": "6",
+        "unit": "Nos",
+        "rate": "23900",
+        "amount": "143400.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Toner cartridge, black, high yield",
+        "hsn": "8443",
+        "qty": "24",
+        "unit": "Nos",
+        "rate": "4150",
+        "amount": "99600.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "243000.00",
+    "tax": "43740.00",
+    "round_off": "0.00",
+    "total": "286740",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-se-inv-2026-0951",
+    "file": "invoice-se-inv-2026-0951.pdf",
+    "doc_type": "invoice",
+    "number": "SE/INV/2026/0951",
+    "vendor": "Sunrise Electronics LLP",
+    "vendor_gstin": "29AAQFS2289K1ZD",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-09-11",
+    "currency": "INR",
+    "intra_state": false,
+    "items": [
+      {
+        "desc": "Laser printer - HP LaserJet Pro, duplex, network enabled",
+        "hsn": "8443",
+        "qty": "6",
+        "unit": "Nos",
+        "rate": "23900",
+        "amount": "143400.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Toner cartridge, black, high yield",
+        "hsn": "8443",
+        "qty": "24",
+        "unit": "Nos",
+        "rate": "4350",
+        "amount": "104400.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "247800.00",
+    "tax": "44604.00",
+    "round_off": "0.00",
+    "total": "292404",
+    "pages": 1,
+    "po_number": "PO/2026-27/0107",
+    "invoice_date": "2026-09-11",
+    "due_date": "2026-10-11",
+    "planted_mismatches": {
+      "1": {
+        "rate": "4350"
+      }
+    }
+  },
+  {
+    "doc_id": "po-po-2026-27-0108",
+    "file": "po-po-2026-27-0108.pdf",
+    "doc_type": "po",
+    "number": "PO/2026-27/0108",
+    "vendor": "Bharat Steel Traders",
+    "vendor_gstin": "27AAJFB5562L1ZK",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-10-05",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "MS angle, 50 x 50 x 5 mm",
+        "hsn": "7216",
+        "qty": "6",
+        "unit": "MT",
+        "rate": "61200",
+        "amount": "367200.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Structural steel plate, 10 mm thickness",
+        "hsn": "7208",
+        "qty": "4",
+        "unit": "MT",
+        "rate": "63800",
+        "amount": "255200.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "622400.00",
+    "tax": "112032.00",
+    "round_off": "0.00",
+    "total": "734432",
+    "pages": 1
+  },
+  {
+    "doc_id": "invoice-bst-1187",
+    "file": "invoice-bst-1187.pdf",
+    "doc_type": "invoice",
+    "number": "BST-1187",
+    "vendor": "Bharat Steel Traders",
+    "vendor_gstin": "27AAJFB5562L1ZK",
+    "buyer": "Shreeji Infra Projects Pvt Ltd",
+    "date": "2026-10-15",
+    "currency": "INR",
+    "intra_state": true,
+    "items": [
+      {
+        "desc": "MS angle, 50 x 50 x 5 mm",
+        "hsn": "7216",
+        "qty": "6",
+        "unit": "MT",
+        "rate": "61200",
+        "amount": "367200.00",
+        "gst_pct": 18
+      },
+      {
+        "desc": "Structural steel plate, 10 mm thickness",
+        "hsn": "7208",
+        "qty": "4",
+        "unit": "MT",
+        "rate": "63800",
+        "amount": "255200.00",
+        "gst_pct": 18
+      }
+    ],
+    "taxable": "622400.00",
+    "tax": "112032.00",
+    "round_off": "0.00",
+    "total": "734432",
+    "pages": 1,
+    "po_number": "PO/2026-27/0108",
+    "invoice_date": "2026-10-15",
+    "due_date": "2026-11-29",
+    "planted_mismatches": {}
+  }
+]

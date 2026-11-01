@@ -1,7 +1,48 @@
-import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Card, Input, Select, Space, Spin, Tag, Typography } from 'antd'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, Button, Card, Col, Input, Row, Select, Typography } from 'antd'
 import { askStream, listDocuments, listStrategies } from '../api'
-import ChunkGrid from './ChunkGrid'
+import PipelinePanel from './PipelinePanel'
+import RetrievedChunks from './RetrievedChunks'
+
+// phase: idle -> retrieving -> answering -> finished (or error)
+const INITIAL_RUN = {
+  phase: 'idle',
+  chunks: null,
+  answer: '',
+  tokens: 0,
+  retrievalMs: null,
+  doneMs: null,
+  log: [],
+}
+
+const RUNNING = ['retrieving', 'answering']
+
+function withLog(log, name, p) {
+  const text = name === 'retrieval' ? `${p.chunks.length} chunks · ${p.strategy}` : ''
+
+  if (name === 'token') {
+    // collapse the token stream into one updating line
+    const last = log[log.length - 1]
+    const count = last?.name === 'token' ? last.count + 1 : 1
+    const entry = { name, ms: p.elapsed_ms, count, text: `×${count}` }
+    return last?.name === 'token' ? [...log.slice(0, -1), entry] : [...log, entry]
+  }
+  return [...log, { name, ms: p.elapsed_ms, text }]
+}
+
+function reduceEvent(run, name, p) {
+  const log = withLog(run.log, name, p)
+  switch (name) {
+    case 'retrieval':
+      return { ...run, log, chunks: p.chunks, retrievalMs: p.elapsed_ms, phase: 'answering' }
+    case 'token':
+      return { ...run, log, answer: run.answer + p.text, tokens: run.tokens + 1 }
+    case 'done':
+      return { ...run, log, doneMs: p.elapsed_ms, phase: 'finished' }
+    default:
+      return run
+  }
+}
 
 export default function AskPanel() {
   const [strategies, setStrategies] = useState([])
@@ -9,14 +50,10 @@ export default function AskPanel() {
   const [documents, setDocuments] = useState([])
   const [documentId, setDocumentId] = useState(null)
   const [question, setQuestion] = useState('')
-
-  // idle -> routing -> retrieving -> answering -> idle
-  const [phase, setPhase] = useState('idle')
-  const [route, setRoute] = useState(null)
-  const [chunks, setChunks] = useState(null)
-  const [answer, setAnswer] = useState('')
+  const [run, setRun] = useState(INITIAL_RUN)
   const [error, setError] = useState(null)
   const abortRef = useRef(null)
+  const answerEndRef = useRef(null)
 
   const refreshDocuments = () =>
     listDocuments()
@@ -31,52 +68,55 @@ export default function AskPanel() {
     return () => abortRef.current?.abort()
   }, [])
 
+  // keep the newest streamed text in view inside the answer panel
+  useEffect(() => {
+    answerEndRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [run.answer])
+
   const handleAsk = async () => {
     abortRef.current = new AbortController()
-    setPhase('routing')
-    setRoute(null)
-    setChunks(null)
-    setAnswer('')
+    setRun({ ...INITIAL_RUN, phase: 'retrieving' })
     setError(null)
     try {
       await askStream(
         { question: question.trim(), strategy, documentId },
         {
           signal: abortRef.current.signal,
-          onRoute: (r) => {
-            setRoute(r)
-            setPhase(r === 'rag' ? 'retrieving' : 'answering')
-          },
-          onRetrieval: (c) => {
-            setChunks(c)
-            setPhase('answering')
-          },
-          onToken: (t) => setAnswer((prev) => prev + t),
+          onEvent: (name, payload) => setRun((r) => reduceEvent(r, name, payload)),
         }
       )
     } catch (e) {
-      if (e.name !== 'AbortError') setError(e.message)
-    } finally {
-      setPhase('idle')
+      if (e.name !== 'AbortError') {
+        setError(e.message)
+        setRun((r) => ({ ...r, phase: 'error' }))
+      }
     }
   }
 
-  const running = phase !== 'idle'
-  const description = strategies.find((s) => s.id === strategy)?.description
+  // pages the answer cites, e.g. "Page 2" / "Pages 1" -> highlight those chunk cards
+  const citedPages = useMemo(
+    () => new Set([...run.answer.matchAll(/Pages?\s*(\d+)/gi)].map((m) => Number(m[1]))),
+    [run.answer]
+  )
+
+  const running = RUNNING.includes(run.phase)
+  const current = strategies.find((s) => s.id === strategy)
 
   return (
     <>
-      <Card title="Ask a question" style={{ marginBottom: 24 }}>
-        <Space wrap style={{ marginBottom: 8 }}>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div>
+            <Select
+              style={{ width: 240 }}
+              value={strategy}
+              onChange={setStrategy}
+              disabled={running}
+              options={strategies.map((s) => ({ value: s.id, label: s.label }))}
+            />
+          </div>
           <Select
             style={{ width: 280 }}
-            value={strategy}
-            onChange={setStrategy}
-            disabled={running}
-            options={strategies.map((s) => ({ value: s.id, label: s.label }))}
-          />
-          <Select
-            style={{ width: 320 }}
             allowClear
             placeholder="All documents"
             value={documentId}
@@ -88,68 +128,60 @@ export default function AskPanel() {
               label: `${d.filename} (${d.chunk_count} chunks)`,
             }))}
           />
-        </Space>
-        {description && (
-          <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-            {description}
-          </Typography.Paragraph>
+          <Input
+            style={{ flex: '1 1 300px' }}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onPressEnter={() => !running && question.trim() && handleAsk()}
+            placeholder="Ask about your documents, e.g. What are the payment terms?"
+            disabled={running}
+          />
+          <Button type="primary" loading={running} disabled={!question.trim()} onClick={handleAsk}>
+            Ask
+          </Button>
+        </div>
+        {current && (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {current.description}
+          </Typography.Text>
         )}
-        <Input.TextArea
-          rows={3}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="e.g. What are the payment terms?"
-          disabled={running}
-        />
-        <Button
-          type="primary"
-          loading={running}
-          disabled={!question.trim()}
-          onClick={handleAsk}
-          style={{ marginTop: 12 }}
-        >
-          Ask
-        </Button>
-        {error && <Alert type="error" message={error} showIcon style={{ marginTop: 16 }} />}
+        {error && <Alert type="error" message={error} showIcon style={{ marginTop: 8 }} />}
       </Card>
 
-      {(phase === 'routing' || phase === 'retrieving') && (
-        <Card style={{ marginBottom: 24 }}>
-          <Spin
-            tip={phase === 'routing' ? 'Understanding your question…' : 'Retrieving chunks…'}
-            style={{ display: 'block', margin: 16 }}
-          />
-        </Card>
-      )}
-
-      {chunks && (
-        <Card title={`Retrieved chunks (${chunks.length})`} style={{ marginBottom: 24 }}>
-          {chunks.length ? (
-            <ChunkGrid chunks={chunks} showSource />
-          ) : (
-            <Typography.Text type="secondary">No chunks matched this strategy.</Typography.Text>
-          )}
-        </Card>
-      )}
-
-      {(chunks || (route && route !== 'rag')) && (
-        <Card
-          title="Answer"
-          extra={
-            route === 'greeting' ? (
-              <Tag color="blue">Greeting – no retrieval</Tag>
-            ) : route === 'out_of_scope' ? (
-              <Tag color="orange">Out of scope – no retrieval</Tag>
-            ) : null
-          }
-        >
-          {phase === 'answering' && !answer && <Spin tip="Generating answer…" />}
-          <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
-            {answer}
-            {phase === 'answering' && answer && ' ▍'}
-          </Typography.Paragraph>
-        </Card>
-      )}
+      <Row gutter={16} className="workbench">
+        <Col xs={24} lg={8} style={{ height: '100%' }}>
+          <PipelinePanel run={run} strategyLabel={current?.label ?? ''} />
+        </Col>
+        <Col xs={24} lg={16} style={{ height: '100%' }}>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* chunks take all the space the answer doesn't need */}
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <RetrievedChunks run={run} citedPages={citedPages} />
+            </div>
+            {/* answer grows with its content, up to ~40% of the workbench, then scrolls */}
+            <div style={{ flex: '0 0 auto' }}>
+              <Card
+                title="Answer"
+                className="answer-card"
+                style={{ display: 'flex', flexDirection: 'column' }}
+                styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto' } }}
+              >
+                {run.answer ? (
+                  <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
+                    {run.answer}
+                    {run.phase === 'answering' && <span className="cursor">▍</span>}
+                  </Typography.Paragraph>
+                ) : (
+                  <Typography.Text type="secondary">
+                    {run.phase === 'idle' ? 'The answer will stream in here' : 'Waiting for the answer…'}
+                  </Typography.Text>
+                )}
+                <div ref={answerEndRef} />
+              </Card>
+            </div>
+          </div>
+        </Col>
+      </Row>
     </>
   )
 }
