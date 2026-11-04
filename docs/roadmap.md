@@ -6,10 +6,11 @@ One step at a time; each step is reviewed before the next starts.
 |---|---|---|
 | 0 | Requirements, ambiguities, architecture, ADRs | Done |
 | 1 | Retrieval evaluation on PostgreSQL + pgvector | In progress |
-| 1a | Schema (documents, pages, chunks, embeddings, runs) | Next |
-| 1b | Three chunking strategies | — |
-| 1c | Retrieval: dense, BM25, hybrid | — |
-| 1d | Essential metrics; choose chunking and retrieval | — |
+| 1a | Schema (documents, pages, chunks, embeddings, runs) | Done |
+| 1b | Chunking: recursive, page, structure-aware (+ optional document context) | Done |
+| 1c | Ingestion into Postgres (context from the PDF); retrieval: dense, keyword (Postgres full-text), hybrid | Done |
+| 1d | Metrics (`evals/evaluate.py`): Hit@1, Hit@5, MRR, tokens; choose chunking and retrieval | In review |
+| 1e | App on Postgres: backend → frontend → (later) remove old Qdrant code | Backend done; frontend in review |
 | 2 | Corpus from the mentor's scenarios; golden set (40 questions) | Waiting on scenarios |
 | 3 | Structured extraction + SQL answers with verifier | — |
 | 4 | Router (structured / semantic / hybrid / out-of-scope) + hybrid answering | — |

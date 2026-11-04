@@ -21,27 +21,29 @@ export function listDocuments() {
   return request('/documents')
 }
 
-export function getDocumentChunks(documentId) {
-  return request(`/documents/${encodeURIComponent(documentId)}/chunks`)
+export function getDocumentChunks(documentId, chunker) {
+  const query = chunker ? `?chunker=${encodeURIComponent(chunker)}` : ''
+  return request(`/documents/${encodeURIComponent(documentId)}/chunks${query}`)
 }
 
 export function deleteDocument(documentId) {
   return request(`/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' })
 }
 
-export function listStrategies() {
-  return request('/strategies')
+// chunkers and retrieval methods for the Ask page, plus their defaults
+export function getOptions() {
+  return request('/options')
 }
 
 // POST /ask streams Server-Sent Events: `retrieval` (chunks), `token` (answer text),
 // `done`, or `error`.
 // Every payload carries `elapsed_ms` since the request started.
 // onEvent(name, payload) is called for each one except `error`, which throws. EventSource only supports GET, so we read the stream by hand.
-export async function askStream({ question, strategy, documentId }, { onEvent, signal }) {
+export async function askStream({ question, chunker, method, documentId }, { onEvent, signal }) {
   const res = await fetch(`${BASE_URL}/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, strategy, document_id: documentId ?? null }),
+    body: JSON.stringify({ question, chunker, method, document_id: documentId ?? null }),
     signal,
   })
   if (!res.ok) throw new Error(await errorMessage(res))

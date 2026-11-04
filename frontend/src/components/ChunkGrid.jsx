@@ -1,5 +1,7 @@
 import { Card, Col, Row, Tag, Typography } from 'antd'
 
+export const TYPE_COLORS = { clause: 'green', table: 'gold', header: 'geekblue' }
+
 function ChunkCard({ chunk, showSource }) {
   return (
     <Card
@@ -16,10 +18,8 @@ function ChunkCard({ chunk, showSource }) {
         )}
         {showSource && <Tag color="purple">{chunk.filename}</Tag>}
         <Tag color="blue">Page {chunk.page}</Tag>
-        <Tag color={chunk.chunk_type === 'numbered_section' ? 'green' : 'default'}>
-          {chunk.chunk_type}
-        </Tag>
-        <Tag>{chunk.section}</Tag>
+        {chunk.chunk_type && <Tag color={TYPE_COLORS[chunk.chunk_type]}>{chunk.chunk_type}</Tag>}
+        {chunk.section && <Tag>{chunk.section}</Tag>}
       </div>
       <Typography.Paragraph
         ellipsis={{ rows: 5, expandable: 'collapsible' }}
@@ -35,7 +35,7 @@ export default function ChunkGrid({ chunks, showSource = false }) {
   return (
     <Row gutter={[16, 16]}>
       {chunks.map((c) => (
-        <Col key={c.point_id ?? c.index} xs={24} md={12} lg={8}>
+        <Col key={c.chunk_id ?? c.index} xs={24} md={12} lg={8}>
           <ChunkCard chunk={c} showSource={showSource} />
         </Col>
       ))}

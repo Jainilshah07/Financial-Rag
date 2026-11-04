@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Card, Col, Input, Row, Select, Typography } from 'antd'
-import { askStream, listDocuments, listStrategies } from '../api'
+import { askStream, getOptions, listDocuments } from '../api'
 import PipelinePanel from './PipelinePanel'
 import RetrievedChunks from './RetrievedChunks'
 
@@ -18,7 +18,7 @@ const INITIAL_RUN = {
 const RUNNING = ['retrieving', 'answering']
 
 function withLog(log, name, p) {
-  const text = name === 'retrieval' ? `${p.chunks.length} chunks · ${p.strategy}` : ''
+  const text = name === 'retrieval' ? `${p.chunks.length} chunks · ${p.chunker} · ${p.method}` : ''
 
   if (name === 'token') {
     // collapse the token stream into one updating line
@@ -45,8 +45,9 @@ function reduceEvent(run, name, p) {
 }
 
 export default function AskPanel() {
-  const [strategies, setStrategies] = useState([])
-  const [strategy, setStrategy] = useState('similarity')
+  const [options, setOptions] = useState({ chunkers: [], methods: [] })
+  const [chunker, setChunker] = useState(null)
+  const [method, setMethod] = useState(null)
   const [documents, setDocuments] = useState([])
   const [documentId, setDocumentId] = useState(null)
   const [question, setQuestion] = useState('')
@@ -61,8 +62,12 @@ export default function AskPanel() {
       .catch(() => {})
 
   useEffect(() => {
-    listStrategies()
-      .then((d) => setStrategies(d.strategies))
+    getOptions()
+      .then((d) => {
+        setOptions(d)
+        setChunker(d.defaults.chunker)
+        setMethod(d.defaults.method)
+      })
       .catch((e) => setError(e.message))
     refreshDocuments()
     return () => abortRef.current?.abort()
@@ -79,7 +84,7 @@ export default function AskPanel() {
     setError(null)
     try {
       await askStream(
-        { question: question.trim(), strategy, documentId },
+        { question: question.trim(), chunker, method, documentId },
         {
           signal: abortRef.current.signal,
           onEvent: (name, payload) => setRun((r) => reduceEvent(r, name, payload)),
@@ -100,21 +105,29 @@ export default function AskPanel() {
   )
 
   const running = RUNNING.includes(run.phase)
-  const current = strategies.find((s) => s.id === strategy)
+  const label = (list, id) => list.find((o) => o.id === id)?.label ?? ''
+  const strategyLabel = [label(options.chunkers, chunker), label(options.methods, method)].filter(Boolean).join(' · ')
 
   return (
     <>
       <Card size="small" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <Select
-              style={{ width: 240 }}
-              value={strategy}
-              onChange={setStrategy}
-              disabled={running}
-              options={strategies.map((s) => ({ value: s.id, label: s.label }))}
-            />
-          </div>
+          <Select
+            style={{ width: 200 }}
+            aria-label="Chunker"
+            value={chunker}
+            onChange={setChunker}
+            disabled={running}
+            options={options.chunkers.map((o) => ({ value: o.id, label: o.label }))}
+          />
+          <Select
+            style={{ width: 180 }}
+            aria-label="Retrieval method"
+            value={method}
+            onChange={setMethod}
+            disabled={running}
+            options={options.methods.map((o) => ({ value: o.id, label: o.label }))}
+          />
           <Select
             style={{ width: 280 }}
             allowClear
@@ -125,32 +138,27 @@ export default function AskPanel() {
             disabled={running}
             options={documents.map((d) => ({
               value: d.document_id,
-              label: `${d.filename} (${d.chunk_count} chunks)`,
+              label: `${d.doc_number || d.filename} (${d.chunkers?.[chunker] ?? 0} chunks)`,
             }))}
           />
           <Input
             style={{ flex: '1 1 300px' }}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            onPressEnter={() => !running && question.trim() && handleAsk()}
+            onPressEnter={() => !running && question.trim() && chunker && handleAsk()}
             placeholder="Ask about your documents, e.g. What are the payment terms?"
             disabled={running}
           />
-          <Button type="primary" loading={running} disabled={!question.trim()} onClick={handleAsk}>
+          <Button type="primary" loading={running} disabled={!question.trim() || !chunker} onClick={handleAsk}>
             Ask
           </Button>
         </div>
-        {current && (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {current.description}
-          </Typography.Text>
-        )}
         {error && <Alert type="error" message={error} showIcon style={{ marginTop: 8 }} />}
       </Card>
 
       <Row gutter={16} className="workbench">
         <Col xs={24} lg={8} style={{ height: '100%' }}>
-          <PipelinePanel run={run} strategyLabel={current?.label ?? ''} />
+          <PipelinePanel run={run} strategyLabel={strategyLabel} />
         </Col>
         <Col xs={24} lg={16} style={{ height: '100%' }}>
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>

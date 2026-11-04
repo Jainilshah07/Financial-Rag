@@ -43,21 +43,60 @@ flowchart LR
     Gen <--> Groq
 ```
 
-## 2. Upload flow – PDF to chunks
+## 2. Upload flow – PDF to chunks (PostgreSQL)
 
 ```mermaid
 flowchart TD
     A([User drops a PDF]) --> B["POST /upload"]
-    B --> C{"Is it a .pdf?"}
-    C -- no --> X1["400 error"]
-    C -- yes --> D["PyMuPDF: load pages"]
-    D --> E["Split each page by numbered headings<br/>e.g. '4. Invoices and Payment'"]
-    E --> F["RecursiveCharacterTextSplitter<br/>only when a section is over 1800 chars<br/>overlap 150"]
-    F --> G["Tag every chunk:<br/>document_id, filename, uploaded_at,<br/>chunk_index, page, section, chunk_type"]
-    G --> H["Gemini embeds each chunk"]
-    H --> I[("Store in Qdrant<br/>collection: financial_documents")]
-    I --> J(["Response: chunks list<br/>UI shows chunk cards, can be hidden"])
+    B --> C{"Same file already stored?<br/>SHA-256 of the bytes"}
+    C -- no --> D["Store document + one row per page<br/>text NFKC-normalised (ligatures fixed)"]
+    C -- yes --> E
+    D --> E["Read document identity from page 1 (rules)<br/>type, number, vendor; unsure → left out"]
+    E --> F["Structure-aware chunking<br/>(section 2a)"]
+    F --> G["Replace this document's chunks for this chunker<br/>other chunkers' rows untouched"]
+    G --> H{"Vector for this search_text<br/>already in embeddings?"}
+    H -- no --> I["Gemini embeds search_text<br/>stored by (model, text_hash)"]
+    H -- yes --> J
+    I --> J(["Response: chunk cards in the UI"])
 ```
+
+Each chunk keeps two texts: `text` (what we cite and send to the LLM) and `search_text`
+(what is embedded and keyword-indexed), which adds the document identity and section on top.
+
+### 2a. Structure-aware chunking (`chunking.py`)
+
+```mermaid
+flowchart TD
+    P["PDF page"] --> T["Find tables (PyMuPDF)<br/>drop tables nested inside another"]
+    P --> L["Text lines outside tables<br/>in reading order"]
+
+    T --> T1{"Header row?<br/>3+ columns, no digits"}
+    T1 -- yes --> T2["Line-items table<br/>each row as 'Column: value | …'<br/>totals rows as 'Sub Total: …'<br/>type: table · section: Line items"]
+    T1 -- no --> T3["Key-value grid<br/>'PO No. | PO/… | Date | …'<br/>kept as a text block"]
+
+    L --> L1{"What kind of line?"}
+    L1 -- "short and larger, or bold capitals" --> H["Heading<br/>starts a new section"]
+    L1 -- "starts with '4. '" --> CL["Numbered clause<br/>one chunk per clause<br/>type: clause"]
+    L1 -- other --> TX["Added to the current clause or block"]
+
+    T3 & TX --> M["Merge small neighbouring blocks<br/>up to 600 characters<br/>e.g. vendor + ship-to address"]
+    T2 & CL & M --> S["Split anything over 1,500 characters<br/>recursively (1000 / 150 overlap)"]
+    H -. "section label" .-> S
+    S --> O["Chunk: text, section, type, pages"]
+    O --> ST["search_text =<br/>document identity + Section + text"]
+```
+
+Example (PO/2026-27/0103, late-delivery clause):
+
+| Field | Value |
+|---|---|
+| `section` | Terms And Conditions › Late Delivery Penalty |
+| `chunk_type` | clause |
+| `text` | 5. Late Delivery Penalty: If delivery is delayed beyond the agreed schedule, liquidated damages of 0.5% … |
+| `search_text` | Purchase Order PO/2026-27/0103 \| Vendor: Bharat Steel Traders<br/>Section: Terms And Conditions > Late Delivery Penalty<br/>5. Late Delivery Penalty: If delivery is delayed … |
+
+The two other chunkers (`recursive`: 1000 characters with 150 overlap; `page`: one chunk per page)
+use the same `search_text` prefix without a section line.
 
 ## 3. Ask flow – question to answer
 

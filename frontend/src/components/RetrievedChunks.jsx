@@ -8,8 +8,7 @@ function ChunkTags({ chunk }) {
     <>
       <Tag color="purple">{chunk.filename}</Tag>
       <Tag color="blue">Page {chunk.page}</Tag>
-      <Tag color={chunk.chunk_type === 'numbered_section' ? 'green' : 'default'}>{chunk.chunk_type}</Tag>
-      <Tag>{chunk.section}</Tag>
+      {chunk.section && <Tag>{chunk.section}</Tag>}
     </>
   )
 }
@@ -39,7 +38,7 @@ function ChunkCard({ chunk, percent, cited, delay, onOpen }) {
       <Progress percent={percent} showInfo={false} size="small" strokeColor="#faad14" />
       <div style={{ margin: '4px 0 8px' }}>
         <Tag color="blue">Page {chunk.page}</Tag>
-        <Tag>{chunk.section}</Tag>
+        {chunk.section && <Tag>{chunk.section}</Tag>}
       </div>
       <Typography.Paragraph
         ellipsis={{ rows: 4 }}
@@ -78,14 +77,14 @@ export default function RetrievedChunks({ run, citedPages }) {
       </div>
     )
   } else if (!chunks.length) {
-    body = <Placeholder>No chunks matched this strategy</Placeholder>
+    body = <Placeholder>No chunks matched this chunker and method</Placeholder>
   } else {
     const max = Math.max(...chunks.map((c) => c.score))
     body = (
       <div style={{ display: 'flex', gap: 12, paddingBottom: 8 }}>
         {chunks.map((c, i) => (
           <ChunkCard
-            key={c.point_id}
+            key={c.chunk_id}
             chunk={c}
             percent={Math.round((c.score_label === 'cosine' ? c.score : c.score / max) * 100)}
             cited={citedPages.has(c.page)}
