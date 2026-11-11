@@ -6,7 +6,7 @@ One step at a time; each step is reviewed before the next starts.
 | # | Step | Learning focus | Status |
 |---|---|---|---|
 | 0 | Remove old Qdrant code; this roadmap | — | Done |
-| 1 | Docling extraction: run on sample PDFs, read the `DoclingDocument` (labels, tables, pages, reading order), store its JSON per document | Layout and table models, OCR options | — |
+| 1 | Docling extraction: run on sample PDFs, read the `DoclingDocument` (labels, tables, pages, reading order), store its JSON per document | Layout and table models, OCR options | Done (JSON in files; DB in step 5) |
 | 2 | Test set with varied layouts (the current corpus is one template) | Evaluation design, avoiding a biased test set | — |
 | 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | — |
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | — |
@@ -18,6 +18,16 @@ One step at a time; each step is reviewed before the next starts.
 
 **Decisions.** Chunks carry a light context prefix taken from Docling (title, section); field extraction waits.
 `evals/results.json` is kept as the regex baseline.
+
+## Step 1 findings (one PO, one invoice)
+
+- **Settings:** Docling defaults (accurate tables), OCR off; `--ocr` for scanned PDFs.
+- **Good:** line-item and key-value tables come out as clean grids; terms come out as `list_item` under their heading.
+- **Weak:** company names are labelled `section_header`; "PURCHASE ORDER" is not a `title`; "TAX INVOICE" merged into address text.
+- **Spanning cells** repeat in every column (e.g. "CGST @ 9%" six times). Read cells from the JSON (start/end column), not the Markdown.
+- **Heading hierarchy option:** levels don't follow meaning (Vendor 3, vendor name 5, Terms 4). Off.
+- **Fast table mode:** splits totals rows ("Sub" / "Total"), no speed gain. Off.
+- **Speed (CPU):** about 16s model load once, then about 8–20s per page. The API must load models once.
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
