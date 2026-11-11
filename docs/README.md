@@ -1,6 +1,6 @@
 # Docs
 
-Plan and decisions for the production version of `financial-rag`. Root `ARCHITECTURE.md` describes the current app; this folder describes the target.
+Plan and decisions for `financial-rag`. Branch `feature/approach-2` replaces rule-based extraction with Docling.
 
 | File | Purpose |
 |---|---|
