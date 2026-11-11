@@ -7,7 +7,7 @@ One step at a time; each step is reviewed before the next starts.
 |---|---|---|---|
 | 0 | Remove old Qdrant code; this roadmap | — | Done |
 | 1 | Docling extraction: run on sample PDFs, read the `DoclingDocument` (labels, tables, pages, reading order), store its JSON per document | Layout and table models, OCR options | Done (JSON in files; DB in step 5) |
-| 2 | Test set with varied layouts (the current corpus is one template) | Evaluation design, avoiding a biased test set | — |
+| 2 | Test set with varied layouts (the current corpus is one template) | Evaluation design, avoiding a biased test set | Done (`evals/data_v2/`) |
 | 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | — |
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | — |
 | 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py` structure part, `doc_info.py`) | Pipeline design, idempotency | — |
@@ -29,7 +29,16 @@ One step at a time; each step is reviewed before the next starts.
 - **Fast table mode:** splits totals rows ("Sub" / "Total"), no speed gain. Off.
 - **Speed (CPU):** about 16s model load once, then about 8–20s per page. The API must load models once.
 
+## Step 2: test set v2 (`evals/corpus_v2.py`)
+
+- 8 new linked PO + invoice pairs, 2 per layout: 16 documents, 20 pages, 40 questions (about 10 per layout).
+- **A** bordered tables, numbered clauses · **B** "Label: value" fields, side-by-side parties, different wording ·
+  **C** borderless line items breaking across pages, running header and footer · **D** terms as unnumbered paragraphs.
+- Same data model, clause texts and question pools as v1, so differences come from layout, not wording.
+- Every evidence snippet is checked against the PDF text; each question records its `layout`.
+- `evaluate.py` reads v2 and reports per layout in step 6. The v1 set stays as the regex baseline.
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 
-**Open.** Test documents for step 2: the mentor's scenarios are not shared yet.
+**Open.** The mentor's scenarios (not shared yet) may replace or extend test set v2. Real public invoices: later.
