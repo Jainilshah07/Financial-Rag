@@ -38,6 +38,15 @@ One step at a time; each step is reviewed before the next starts.
 - Every evidence snippet is checked against the PDF text; each question records its `layout`.
 - `evaluate.py` reads v2 and reports per layout in step 6. The v1 set stays as the regex baseline.
 
+**Docling on one PO per layout** (input for step 4):
+
+- **A:** as in step 1; "Vendor" and the vendor name merged into one heading.
+- **B:** "Label: value" lines come out cleanly; side-by-side parties scramble reading order (address lines out of order, title after the supplier, "Deliver To" not a heading).
+- **C:** running header and footer correctly moved to `page_header` / `page_footer`. The borderless table splits at the page break: its column headings come out as text, page 2 has different columns ("2 Nos"), "Grand Total" falls out as text. The borderless header grid becomes loose text.
+- **D:** all 9 terms merge into one text block; only the first bold heading is detected. No text lost, but no term boundaries.
+- **Chunker needs (step 4):** split oversized text blocks; join tables continued across pages; attach a header line found just before a table.
+- Invoices not checked yet.
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 
