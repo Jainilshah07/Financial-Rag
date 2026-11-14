@@ -8,7 +8,7 @@ One step at a time; each step is reviewed before the next starts.
 | 0 | Remove old Qdrant code; this roadmap | — | Done |
 | 1 | Docling extraction: run on sample PDFs, read the `DoclingDocument` (labels, tables, pages, reading order), store its JSON per document | Layout and table models, OCR options | Done (JSON in files; DB in step 5) |
 | 2 | Test set with varied layouts (the current corpus is one template) | Evaluation design, avoiding a biased test set | Done (`evals/data_v2/`) |
-| 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | — |
+| 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | Done (`chunkers.py`) |
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | — |
 | 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py` structure part, `doc_info.py`) | Pipeline design, idempotency | — |
 | 6 | Retrieval evaluation: chunkers (HybridChunker, ours, recursive baseline) × dense / keyword / hybrid | Choosing by measurement | — |
@@ -46,6 +46,21 @@ One step at a time; each step is reviewed before the next starts.
 - **D:** all 9 terms merge into one text block; only the first bold heading is detected. No text lost, but no term boundaries.
 - **Chunker needs (step 4):** split oversized text blocks; join tables continued across pages; attach a header line found just before a table.
 - Invoices not checked yet.
+
+## Step 3: HybridChunker (`chunkers.py`)
+
+- **Settings:** 256 tokens; MiniLM tokenizer as a local approximation of Gemini's; tables as Markdown.
+- **Texts:** `text` = chunk text (for the LLM), `search_text` = headings + text (embedded).
+- **Markdown vs default "row, column = value" tables** (layout A and D POs):
+  - Markdown: about 35% fewer table tokens (333 vs 510), header row kept, key-value grid readable.
+  - Default: "PO No., 2 = PO Date"; spanning cells repeated as sentences; split mid-cell.
+- **Known limits (for step 4 / step 6):**
+  - A table over the limit is split by column: the Amount column lands alone, without item names.
+  - Spanning cells repeat ("Sub Total | Sub Total | …").
+  - Wrong headings become context (site name above the line items).
+  - Neighbouring items are merged up to the limit: layout A terms grouped 6 + 3, not one per clause.
+  - Layout D: all terms filed under "Payment Terms".
+  - Step 6: also test 512 tokens (the table would fit in one chunk).
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
