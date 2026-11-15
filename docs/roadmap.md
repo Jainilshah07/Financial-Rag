@@ -9,7 +9,7 @@ One step at a time; each step is reviewed before the next starts.
 | 1 | Docling extraction: run on sample PDFs, read the `DoclingDocument` (labels, tables, pages, reading order), store its JSON per document | Layout and table models, OCR options | Done (JSON in files; DB in step 5) |
 | 2 | Test set with varied layouts (the current corpus is one template) | Evaluation design, avoiding a biased test set | Done (`evals/data_v2/`) |
 | 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | Done (`chunkers.py`) |
-| 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | — |
+| 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | Done (`structure_aware_chunker.py`) |
 | 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py` structure part, `doc_info.py`) | Pipeline design, idempotency | — |
 | 6 | Retrieval evaluation: chunkers (HybridChunker, ours, recursive baseline) × dense / keyword / hybrid | Choosing by measurement | — |
 | 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | — |
@@ -61,6 +61,23 @@ One step at a time; each step is reviewed before the next starts.
   - Neighbouring items are merged up to the limit: layout A terms grouped 6 + 3, not one per clause.
   - Layout D: all terms filed under "Payment Terms".
   - Step 6: also test 512 tokens (the table would fit in one chunk).
+
+## Step 4: structure-aware chunker (`structure_aware_chunker.py`)
+
+- **Document header** (`doc_header`, both chunkers): short page-1 lines in reading order, up to 64 tokens,
+  skipping long texts and line-item tables. Gives document number, date and vendor in all four layouts, without field extraction.
+- **Rules** (on Docling labels, same 256-token limit and tokenizer as HybridChunker):
+  - A heading directly after a heading is content (party name under "Ship To").
+  - A table takes only the heading directly above it, and ends the section.
+  - Tables: header + rows up to the limit, header repeated, never split by column; spanning cells written once.
+  - No header row: a short, digit-free text line just above the table becomes the header (layout C).
+  - A table continuing on the next page joins the previous one.
+  - One chunk per clause; text merged up to the limit; oversized text split by sentence (keeping a lead-in like "Payment Terms").
+  - Very short texts ("Authorised Signatory") attach to the previous chunk.
+- **Result (POs):** line items + totals in one chunk (A, B, D); layout C table joined across pages with header in every chunk;
+  one clause per chunk. Chunks: A 16, B 15, C 18, D 9 (HybridChunker: 8, 12, 14, 8).
+- **Still weak:** layout D term boundaries (lost in Docling, sentence split cuts at the limit);
+  layout B reading order; chunks reach about 320 tokens with the header. Rules are heuristics: step 6 decides.
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
