@@ -11,7 +11,7 @@ One step at a time; each step is reviewed before the next starts.
 | 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | Done (`chunkers.py`) |
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | Done (`structure_aware_chunker.py`) |
 | 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py`, `doc_info.py`) | Pipeline design, idempotency | Done (run 4) |
-| 6 | Retrieval evaluation on test set v2: chunkers (HybridChunker as baseline, ours) × dense / keyword / hybrid | Choosing by measurement | — |
+| 6 | Retrieval evaluation on test set v2: chunkers (HybridChunker as baseline, ours) × dense / keyword / hybrid | Choosing by measurement | Done (`results_v2.json`) |
 | 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | — |
 | 8 | Generation: grounded answers, page citations, guardrails, answer-quality checks | Faithfulness, citations | — |
 | 9 | API and UI on the new pipeline | — | — |
@@ -87,6 +87,30 @@ One step at a time; each step is reviewed before the next starts.
 - `chunking.py` and `doc_info.py` removed; `doc_type` / `doc_number` stay empty until field extraction.
 - **Run 4 (test set v2):** 16 documents, 20 pages. hybrid 182 chunks, structure 201; 49 texts identical in both, so embedded once.
 - Old v1 rows are kept; search always filters by chunker, so they don't affect the new chunkers.
+
+## Step 6: retrieval evaluation (`evals/evaluate.py` → `evals/results_v2.json`)
+
+- `evaluate.py`: `--data` / `--chunkers` / `--out`; tokens counted with our tokenizer; breakdown by type and layout.
+  Refuses to overwrite `results.json` (regex baseline).
+
+| Chunker | Method | Hit@1 | Hit@5 | MRR | Tokens@5 |
+|---|---|---|---|---|---|
+| hybrid | dense | 0.35 | 0.72 | 0.506 | 763 |
+| hybrid | keyword | 0.45 | 0.57 | 0.509 | 666 |
+| hybrid | hybrid | 0.35 | 0.62 | 0.480 | 728 |
+| structure | dense | 0.40 | 0.80 | 0.564 | 319 |
+| structure | keyword | 0.35 | 0.55 | 0.457 | 343 |
+| structure | hybrid | 0.35 | 0.72 | 0.530 | 321 |
+
+- **Chunkers:** structure + dense is best (MRR 0.564 vs 0.506, Hit@5 0.80 vs 0.72) with less than half the tokens.
+  By layout (dense MRR A/B/C/D): structure 0.85/0.64/0.48/0.29, hybrid 0.53/0.60/0.53/0.36. 10 questions per layout: indicative only.
+- **Measurement is sound:** evidence is reachable for 40/40 (structure) and 39/40 (hybrid: one row split from its price).
+- **Main failure is document identity, not chunking.** Structure + dense: 23 of 40 top-1 results come from the wrong document:
+  - 10 PO ↔ its own invoice (same items and rates; about 5 are arguably correct answers under a strict metric),
+  - 8 same vendor, other PO (clause chunks don't name the items; the header has number, date, vendor only),
+  - 5 neighbouring document numbers (dense embeddings blur "0204" vs "0206"; keyword search too weak to rescue).
+- **Next (step 7):** item names in the document header; keyword search for document numbers; reranker;
+  a lenient metric (linked PO + invoice) next to the strict one. 512 tokens: low priority.
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).

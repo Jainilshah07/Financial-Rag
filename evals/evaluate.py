@@ -1,20 +1,22 @@
-"""Retrieval evaluation: every chunker x method on evals/data/questions.jsonl (read-only).
+"""Retrieval evaluation: every chunker x method on a question set (read-only).
 
 A retrieved chunk is relevant when it comes from the question's document and contains
-every evidence snippet. Writes per-question ranks to evals/results.json.
+every evidence snippet. Writes per-question ranks to a results file.
 
-    uv run python -m evals.evaluate
+    uv run python -m evals.evaluate                                    # test set v2 -> results_v2.json
+    uv run python -m evals.evaluate --data data --out results_v1.json  # v1 questions (results.json is the regex baseline)
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
 
 from evals.corpus import norm
+from financial_rag.chunkers import count_tokens
 from financial_rag.db import get_sessionmaker
 from financial_rag.search import METHODS, TOP_K
 
-CHUNKERS = ["recursive_ctx", "page_ctx", "structure_ctx"]
 ROOT = Path(__file__).parent
 
 
@@ -32,40 +34,55 @@ def summarise(rows: list[dict]) -> dict:
         "hit1": sum(r["rank"] == 1 for r in rows) / n,
         "hit5": sum(r["rank"] is not None and r["rank"] <= 5 for r in rows) / n,
         "mrr": sum(1 / r["rank"] for r in rows if r["rank"]) / n,
-        "tokens5": sum(r["tokens5"] for r in rows) / n,
+        "tokens5": sum(r["tokens5"] for r in rows) / n,  # what the LLM would read: text of the top 5 chunks
     }
 
 
+def breakdown(rows: list[dict], key: str) -> dict:
+    return {v: summarise([r for r in rows if r[key] == v]) for v in sorted({r[key] for r in rows})}
+
+
 def main():
+    ap = argparse.ArgumentParser(description="Evaluate retrieval for each chunker x method.")
+    ap.add_argument("--data", default="data_v2", help="folder under evals/ with questions.jsonl")
+    ap.add_argument("--chunkers", nargs="+", default=["hybrid", "structure"])
+    ap.add_argument("--out", default="results_v2.json", help="file under evals/")
+    args = ap.parse_args()
+    if args.out == "results.json":
+        sys.exit("results.json is the regex baseline; choose another --out")
+
     sys.stdout.reconfigure(encoding="utf-8")
-    questions = [json.loads(l) for l in (ROOT / "data" / "questions.jsonl").read_text(encoding="utf-8").splitlines()]
-    types = sorted({q["type"] for q in questions})
+    questions = [json.loads(l) for l in (ROOT / args.data / "questions.jsonl").read_text(encoding="utf-8").splitlines()]
     results = {}
 
     with get_sessionmaker()() as s:
-        for chunker in CHUNKERS:
+        for chunker in args.chunkers:
             for method, fn in METHODS.items():
                 rows = []
                 for q in questions:
                     hits = fn(s, q["question"], chunker, TOP_K)
-                    rows.append({"id": q["id"], "type": q["type"], "rank": first_relevant(hits, q),
-                                 "tokens5": sum(len(h.text) // 4 for h in hits[:5])})
-                results[f"{chunker}|{method}"] = {
-                    "summary": summarise(rows),
-                    "by_type": {t: summarise([r for r in rows if r["type"] == t]) for t in types},
-                    "questions": rows,
-                }
+                    rows.append({"id": q["id"], "type": q["type"], "layout": q.get("layout", "-"),
+                                 "rank": first_relevant(hits, q),
+                                 "tokens5": sum(count_tokens(h.text) for h in hits[:5])})
+                results[f"{chunker}|{method}"] = {"summary": summarise(rows), "by_type": breakdown(rows, "type"),
+                                                  "by_layout": breakdown(rows, "layout"), "questions": rows}
 
-    print(f"{len(questions)} questions ({', '.join(f'{t}: {sum(q['type'] == t for q in questions)}' for t in types)})\n")
-    print(f"| Chunker | Method | Hit@1 | Hit@5 | MRR | ~Tokens@5 | " + " | ".join(f"MRR {t}" for t in types) + " |")
+    types = sorted({q["type"] for q in questions})
+    layouts = sorted({q.get("layout", "-") for q in questions})
+    print(f"{len(questions)} questions from evals/{args.data}\n")
+    print("| Chunker | Method | Hit@1 | Hit@5 | MRR | Tokens@5 | " + " | ".join(f"MRR {t}" for t in types) + " |")
     print("|---|---|---|---|---|---|" + "---|" * len(types))
     for key, r in results.items():
         a = r["summary"]
         print(f"| {key.replace('|', ' | ')} | {a['hit1']:.2f} | {a['hit5']:.2f} | {a['mrr']:.3f} | {a['tokens5']:.0f} | "
               + " | ".join(f"{r['by_type'][t]['mrr']:.2f}" for t in types) + " |")
+    print("\n| Chunker | Method | " + " | ".join(f"MRR {l}" for l in layouts) + " |")
+    print("|---|---|" + "---|" * len(layouts))
+    for key, r in results.items():
+        print(f"| {key.replace('|', ' | ')} | " + " | ".join(f"{r['by_layout'][l]['mrr']:.2f}" for l in layouts) + " |")
 
-    (ROOT / "results.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
-    print("\nPer-question ranks: evals/results.json")
+    (ROOT / args.out).write_text(json.dumps(results, indent=1), encoding="utf-8")
+    print(f"\nPer-question ranks: evals/{args.out}")
 
 
 if __name__ == "__main__":
