@@ -18,6 +18,8 @@ from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTok
 from docling_core.transforms.serializer.markdown import MarkdownTableSerializer
 from docling_core.types.doc import DocItemLabel, DoclingDocument, TableItem, TextItem
 
+from financial_rag.classify import type_line
+
 # Gemini's tokenizer isn't available locally; this one approximates token counts.
 TOKENIZER = "sentence-transformers/all-MiniLM-L6-v2"
 MAX_TOKENS = 256
@@ -74,10 +76,10 @@ def item_names(doc: DoclingDocument) -> str:
     return text
 
 
-def doc_header(doc: DoclingDocument) -> str:
-    """Short page-1 lines (title, numbers, dates, party names) plus the first item names.
+def doc_header(doc: DoclingDocument, doc_type: str | None = None) -> str:
+    """Document type line (from classification, if known), then short page-1 lines plus the first item names.
 
-    Taken in reading order, skipping long texts and line-item tables, until HEADER_TOKENS.
+    Page-1 lines are taken in reading order, skipping long texts and line-item tables, until HEADER_TOKENS.
     No field extraction: it works the same for any layout.
     """
     parts, used = [], 0
@@ -97,7 +99,8 @@ def doc_header(doc: DoclingDocument) -> str:
                 parts.append(line)
                 used += count_tokens(line)
     items = item_names(doc)
-    return " | ".join(parts + ([f"Items: {items}"] if items else []))
+    header = " | ".join(parts + ([f"Items: {items}"] if items else []))
+    return "\n".join(filter(None, [type_line(doc_type), header]))
 
 
 class MarkdownTables(ChunkingSerializerProvider):
@@ -112,9 +115,9 @@ def hybrid_chunker() -> HybridChunker:
     return HybridChunker(tokenizer=tokenizer(), serializer_provider=MarkdownTables())
 
 
-def hybrid_chunks(doc: DoclingDocument) -> list[Chunk]:
+def hybrid_chunks(doc: DoclingDocument, doc_type: str | None = None) -> list[Chunk]:
     """Docling's HybridChunker: split by document structure, then fit chunks to MAX_TOKENS."""
-    chunker, header = hybrid_chunker(), doc_header(doc)
+    chunker, header = hybrid_chunker(), doc_header(doc, doc_type)
     chunks = []
     for i, chunk in enumerate(chunker.chunk(doc)):
         search_text = f"{header}\n{chunker.contextualize(chunk)}"

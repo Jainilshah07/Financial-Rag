@@ -1,9 +1,10 @@
 """Ingest PDFs: Docling converts each file once, then every chunker runs on the stored result.
 
-    uv run python -m financial_rag.ingest evals/data_v2/corpus [--chunker hybrid structure] [--dry-run]
+    uv run python -m financial_rag.ingest evals/data_v2/corpus [--chunker hybrid structure] [--reclassify] [--dry-run]
 
-Per file: document + Docling JSON + page texts, then this file's chunks per chunker are replaced.
-Missing embeddings are added at the end. `run(paths, chunkers)` is also used by the API for uploads.
+Per file: document + Docling JSON + page texts, document type (LLM, when missing or unknown, or with
+--reclassify), then this file's chunks per chunker are replaced. At the end, missing embeddings are added
+and embeddings no chunk uses any more are removed. `run(paths, chunkers)` is also used by the API for uploads.
 """
 
 import argparse
@@ -16,12 +17,13 @@ from docling_core.types.doc import DoclingDocument
 from sqlalchemy import delete, func, select
 
 from financial_rag import chunkers as ch
+from financial_rag.classify import INPUT_CHARS, classify
 from financial_rag.db import Chunk, Document, DocumentPage, Embedding, IngestionRun, get_sessionmaker
 from financial_rag.embeddings import BATCH_SIZE, MODEL_KEY, embed_documents
 from financial_rag.extraction import extract
 from financial_rag.structure_aware_chunker import structure_chunks
 
-PIPELINE_VERSION = "docling-1"
+PIPELINE_VERSION = "docling-2"  # 2: LLM document type in search_text
 CHUNKERS = {"hybrid": ch.hybrid_chunks, "structure": structure_chunks}
 
 
@@ -50,12 +52,28 @@ def load_or_convert(s, path: Path) -> tuple[Document, DoclingDocument]:
     return doc, dl
 
 
-def ingest_file(s, path: Path, run_id: int, names: list[str]) -> int:
-    """Store one PDF and replace its chunks for each chunker. Returns the chunk count."""
+def classify_document(doc: Document, dl: DoclingDocument, reclassify: bool, stats: dict) -> None:
+    """Set doc.doc_type with the LLM when it is missing or unknown (or always with reclassify)."""
+    if reclassify or doc.doc_type in (None, "unknown"):
+        result = classify(dl.export_to_markdown(page_no=1)[:INPUT_CHARS])
+        doc.doc_type = result.doc_type
+        stats["classify_failed"] += result.failed
+        stats["classify_invalid"] += result.invalid
+        if result.failed:
+            stats["classify_errors"][doc.filename] = result.error
+    stats["doc_types"][doc.doc_type] = stats["doc_types"].get(doc.doc_type, 0) + 1
+
+
+def ingest_file(s, path: Path, run_id: int, names: list[str], reclassify: bool, stats: dict) -> int:
+    """Store one PDF, classify it, and replace its chunks for each chunker. Returns the chunk count.
+
+    Chunks are always rebuilt, so a changed type reaches search_text; new texts get new embeddings.
+    """
     doc, dl = load_or_convert(s, path)
+    classify_document(doc, dl, reclassify, stats)
     doc.latest_run_id, total = run_id, 0
     for name in names:
-        chunks = CHUNKERS[name](dl)
+        chunks = CHUNKERS[name](dl, doc.doc_type)
         s.execute(delete(Chunk).where(Chunk.document_id == doc.id, Chunk.chunker == name))
         s.add_all(Chunk(document_id=doc.id, run_id=run_id, chunker=name, chunk_index=c.index,
                         page_start=c.pages[0] if c.pages else 1, page_end=c.pages[-1] if c.pages else 1,
@@ -94,28 +112,38 @@ def embed_missing(Session, chunker: str) -> int:
     return len(rows)
 
 
-def run(paths: list[Path], names: list[str]) -> dict:
+def prune_embeddings(Session) -> int:
+    """Delete embeddings whose text no chunk uses any more (e.g. after a search_text change)."""
+    with Session() as s, s.begin():
+        return s.execute(delete(Embedding).where(Embedding.text_hash.not_in(select(Chunk.text_hash)))).rowcount
+
+
+def run(paths: list[Path], names: list[str], reclassify: bool = False) -> dict:
     Session = get_sessionmaker()
     with Session() as s, s.begin():
         r = IngestionRun(status="running", pipeline_version=PIPELINE_VERSION, config={
             "chunkers": names, "max_tokens": ch.MAX_TOKENS, "header_tokens": ch.HEADER_TOKENS,
-            "tokenizer": ch.TOKENIZER, "embedding_model": MODEL_KEY, "docling": version("docling")})
+            "tokenizer": ch.TOKENIZER, "embedding_model": MODEL_KEY, "docling": version("docling"),
+            "reclassify": reclassify})
         s.add(r)
         s.flush()
         run_id = r.id
 
-    stats, status = {"documents": 0, "chunks": 0, "failed": {}}, "failed"
+    stats = {"documents": 0, "chunks": 0, "failed": {}, "doc_types": {},
+             "classify_failed": 0, "classify_invalid": 0, "classify_errors": {}}
+    status = "failed"
     try:
         for path in paths:
             try:
                 with Session() as s, s.begin():
-                    stats["chunks"] += ingest_file(s, path, run_id, names)
+                    stats["chunks"] += ingest_file(s, path, run_id, names, reclassify, stats)
                 stats["documents"] += 1
                 print(f"  {path.name}: done", flush=True)
             except Exception as e:
                 stats["failed"][path.name] = str(e)[:300]
                 mark_failed(Session, path, run_id, e)
         stats["embedded"] = {name: embed_missing(Session, name) for name in names}
+        stats["pruned_embeddings"] = prune_embeddings(Session)
         status = "failed" if stats["failed"] else "succeeded"
     finally:
         with Session() as s, s.begin():
@@ -136,10 +164,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Ingest PDFs into Postgres with Docling and the chosen chunkers.")
     ap.add_argument("folder")
     ap.add_argument("--chunker", nargs="+", choices=CHUNKERS, default=list(CHUNKERS))
+    ap.add_argument("--reclassify", action="store_true", help="classify every document again (e.g. new prompt)")
     ap.add_argument("--dry-run", action="store_true", help="convert and chunk only; no database, no API calls")
     args = ap.parse_args()
     files = sorted(Path(args.folder).glob("*.pdf"))
     if args.dry_run:
         dry_run(files, args.chunker)
     else:
-        print(run(files, args.chunker))
+        print(run(files, args.chunker, args.reclassify))

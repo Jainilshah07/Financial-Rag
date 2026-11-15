@@ -124,8 +124,8 @@ def pieces(doc: DoclingDocument) -> list[Piece]:
     return out
 
 
-def structure_chunks(doc: DoclingDocument) -> list[Chunk]:
-    header = doc_header(doc)
+def structure_chunks(doc: DoclingDocument, doc_type: str | None = None) -> list[Chunk]:
+    header = doc_header(doc, doc_type)
     chunks = []
     for i, p in enumerate(pieces(doc)):
         search_text = "\n".join(filter(None, [header, p.section, p.text]))
