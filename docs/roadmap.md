@@ -170,6 +170,23 @@ One step at a time; each step is reviewed before the next starts.
 - PO ↔ invoice misses 11 → 12, all still "wanted PO, got invoice". The type line is a weak embedding signal:
   correct as data, ineffective as text. Kept as stored metadata for filtering (7e).
 
+**7e. Intent-aware retrieval** (`dense_intent` method, run 7 → `evals/results_v2_intent.json`)
+
+- Per question, Groq classifies which document type holds the answer: `purchase_order` / `invoice` / `either` /
+  `unknown` (same validation and retries as 7d; cached per question). The prompt is generic: decide by where the
+  answer is written, not by words; it lists no test topics.
+- Clear `purchase_order` / `invoice` → dense_ids within documents of that type (number filter and type filter
+  intersect). `either`, `unknown`, API failure, or no results → plain dense_ids.
+- Intent: 39/40 correct, 1 `unknown` (q32 → fallback), never `either`, 0 failures.
+- **structure:** dense_ids → dense_intent MRR 0.698 → **0.897**, Hit@1 0.60 → 0.85, Hit@5 0.80 → 0.97,
+  table MRR 0.57 → 1.00; layouts A/B/C/D 0.92/1.00/0.87/0.80. 13 better, 0 worse.
+  MRR linked = MRR: no PO ↔ invoice confusion left.
+- **hybrid:** 0.583 → 0.760; 13 better, 0 worse.
+- **The 12 PO ↔ invoice errors (structure):** 10 now at rank 1; q03 not found → 5, q33 not found → 2.
+- **Still not rank 1 (structure):** q03, q24, q28, q32 (fallback), q33, q38: same-document or same-vendor misses.
+- **Caveats:** our questions use clear "order" / "bill" wording, so expect lower intent accuracy on real phrasing.
+  A confident wrong intent filters out the right document (no fallback). One extra LLM call per question (~0.5–1 s).
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 

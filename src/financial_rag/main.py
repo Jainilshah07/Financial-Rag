@@ -23,8 +23,10 @@ DEFAULT_CHUNKER = "structure"  # uploads run every chunker; this one is shown fi
 ASK_TOP_K = 5
 CHUNKER_LABELS = {"structure": "Structure-aware", "hybrid": "Docling HybridChunker"}
 METHOD_LABELS = {"dense": "Dense (vector)", "keyword": "Keyword (full-text)", "hybrid": "Hybrid (RRF)",
-                 "rerank": "Dense + rerank", "dense_ids": "Dense + document-number filter"}
-SCORE_LABELS = {"dense": "cosine", "keyword": "ts_rank", "hybrid": "RRF", "rerank": "relevance", "dense_ids": "cosine"}
+                 "rerank": "Dense + rerank", "dense_ids": "Dense + document-number filter",
+                 "dense_intent": "Dense + number + document-type filter"}
+SCORE_LABELS = {"dense": "cosine", "keyword": "ts_rank", "hybrid": "RRF", "rerank": "relevance", "dense_ids": "cosine",
+                "dense_intent": "cosine"}
 
 app = FastAPI(title="Financial Document RAG")
 app.add_middleware(

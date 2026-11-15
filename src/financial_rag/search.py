@@ -1,8 +1,10 @@
 """Retrieval over Postgres: dense (pgvector), keyword (full-text), hybrid (RRF), rerank (cross-encoder),
-dense_ids (dense within the documents a question's document number points to).
+dense_ids (dense within the documents a question's document number points to),
+dense_intent (dense_ids within the document type the question asks about, per the LLM).
 
 Every method searches one chunker's chunks and returns Hits, best first. `score` means:
-cosine similarity (dense, dense_ids), ts_rank (keyword), RRF score (hybrid), cross-encoder relevance (rerank).
+cosine similarity (dense, dense_ids, dense_intent), ts_rank (keyword), RRF score (hybrid),
+cross-encoder relevance (rerank).
 
     uv run python -m financial_rag.search "What are the payment terms in PO/2026-27/0103?" --chunker structure
 """
@@ -126,7 +128,27 @@ def dense_ids(s, query: str, chunker: str, k: int = TOP_K, document_id: int | No
     return dense(s, query, chunker, k, document_id, documents or None)
 
 
-METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid, "rerank": rerank, "dense_ids": dense_ids}
+def dense_intent(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
+    """dense_ids, limited to the document type the question asks about when the LLM is clear about it.
+
+    "either", "unknown", an API failure, or a filter that leaves no results all fall back to dense_ids.
+    """
+    from financial_rag.classify import classify_question  # LLM call; only this method needs it
+
+    if document_id:
+        return dense(s, query, chunker, k, document_id)
+    intent = classify_question(query).doc_type
+    if intent in ("purchase_order", "invoice"):
+        typed = set(s.scalars(select(Document.id).where(Document.doc_type == intent)))
+        by_number = identifier_documents(s, query, chunker)
+        documents = (by_number & typed) if by_number else typed
+        if documents and (hits := dense(s, query, chunker, k, None, documents)):
+            return hits
+    return dense_ids(s, query, chunker, k)
+
+
+METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid, "rerank": rerank, "dense_ids": dense_ids,
+           "dense_intent": dense_intent}
 
 
 def search(query: str, chunker: str, method: str = "hybrid", k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
