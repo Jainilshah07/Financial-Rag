@@ -68,6 +68,8 @@ class Document(Base):
         ForeignKey("ingestion_runs.id"), comment="Set when a run starts on this document, even if it fails.")
     content_hash: Mapped[str] = mapped_column(String(64), unique=True, comment="SHA-256 of the file bytes.")
     storage_uri: Mapped[str] = mapped_column(String(1024))
+    docling_json: Mapped[dict | None] = mapped_column(
+        JSONB, comment="DoclingDocument from extraction; chunkers read it, so a file is converted once.")
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

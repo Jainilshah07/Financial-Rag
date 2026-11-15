@@ -14,15 +14,14 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 
 from financial_rag.db import Chunk, Document, get_sessionmaker
-from financial_rag.ingest import chunker_name, run as ingest, sha256
+from financial_rag.ingest import CHUNKERS, run as ingest, sha256
 from financial_rag.rag import stream_answer
 from financial_rag.search import METHODS
 
 UPLOAD_DIR = Path("data/uploads").resolve()
-UPLOAD_STRATEGY = "structure"  # uploads use structure-aware chunking with document context
-DEFAULT_CHUNKER = chunker_name(UPLOAD_STRATEGY, context=True)
+DEFAULT_CHUNKER = "structure"  # uploads run every chunker; this one is shown first
 ASK_TOP_K = 5
-CHUNKER_LABELS = {"structure_ctx": "Structure-aware", "recursive_ctx": "Recursive (1000 chars)", "page_ctx": "One per page"}
+CHUNKER_LABELS = {"structure": "Structure-aware", "hybrid": "Docling HybridChunker"}
 METHOD_LABELS = {"dense": "Dense (vector)", "keyword": "Keyword (full-text)", "hybrid": "Hybrid (RRF)"}
 SCORE_LABELS = {"dense": "cosine", "keyword": "ts_rank", "hybrid": "RRF"}
 
@@ -79,7 +78,7 @@ def upload(file: UploadFile = File(...), s=Depends(session)):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
 
-    result = ingest([path], UPLOAD_STRATEGY)
+    result = ingest([path], list(CHUNKERS))
     if result["failed"]:
         raise HTTPException(500, f"Ingestion failed: {next(iter(result['failed'].values()))}")
     doc = s.scalar(select(Document).where(Document.content_hash == sha256(data)))

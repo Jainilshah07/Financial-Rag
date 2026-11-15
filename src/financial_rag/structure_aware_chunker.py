@@ -35,6 +35,7 @@ class Block:
 
 @dataclass
 class Piece:
+    kind: str
     section: str
     lines: list[tuple[str, int]]
     mergeable: bool  # text pieces may absorb following text in the same section
@@ -101,11 +102,11 @@ def pieces(doc: DoclingDocument) -> list[Piece]:
             group: list[tuple[str, int]] = []
             for row in b.lines:
                 if group and count_tokens("\n".join([*b.header, *(t for t, _ in group), row[0]])) > budget:
-                    out.append(Piece(b.section, [(h, group[0][1]) for h in b.header] + group, False))
+                    out.append(Piece("table", b.section, [(h, group[0][1]) for h in b.header] + group, False))
                     group = []
                 group.append(row)
             if group:
-                out.append(Piece(b.section, [(h, group[0][1]) for h in b.header] + group, False))
+                out.append(Piece("table", b.section, [(h, group[0][1]) for h in b.header] + group, False))
             continue
 
         text, pg = b.lines[0]
@@ -117,9 +118,9 @@ def pieces(doc: DoclingDocument) -> list[Piece]:
         elif count_tokens(text) > budget:
             if same_section and prev.mergeable:  # keep a lead-in such as "Payment Terms" with its text
                 text = f"{out.pop().text}\n{text}"
-            out += [Piece(b.section, g, False) for g in split_sentences(text, pg, budget)]
+            out += [Piece(b.kind, b.section, g, False) for g in split_sentences(text, pg, budget)]
         else:
-            out.append(Piece(b.section, [(text, pg)], b.kind == "text"))
+            out.append(Piece(b.kind, b.section, [(text, pg)], b.kind == "text"))
     return out
 
 
@@ -129,5 +130,5 @@ def structure_chunks(doc: DoclingDocument) -> list[Chunk]:
     for i, p in enumerate(pieces(doc)):
         search_text = "\n".join(filter(None, [header, p.section, p.text]))
         chunks.append(Chunk(i, p.text, search_text, [p.section] if p.section else [],
-                            sorted({pg for _, pg in p.lines}), count_tokens(search_text)))
+                            sorted({pg for _, pg in p.lines}), count_tokens(search_text), p.kind))
     return chunks

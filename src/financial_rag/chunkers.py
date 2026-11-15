@@ -16,7 +16,7 @@ from docling.chunking import HybridChunker
 from docling_core.transforms.chunker.hierarchical_chunker import ChunkingDocSerializer, ChunkingSerializerProvider
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
 from docling_core.transforms.serializer.markdown import MarkdownTableSerializer
-from docling_core.types.doc import DoclingDocument, TableItem, TextItem
+from docling_core.types.doc import DocItemLabel, DoclingDocument, TableItem, TextItem
 
 # Gemini's tokenizer isn't available locally; this one approximates token counts.
 TOKENIZER = "sentence-transformers/all-MiniLM-L6-v2"
@@ -33,6 +33,7 @@ class Chunk:
     headings: list[str]
     pages: list[int]
     tokens: int
+    kind: str  # "table" | "clause" | "text"
 
 
 @cache
@@ -96,8 +97,12 @@ def hybrid_chunks(doc: DoclingDocument) -> list[Chunk]:
     chunks = []
     for i, chunk in enumerate(chunker.chunk(doc)):
         search_text = f"{header}\n{chunker.contextualize(chunk)}"
-        pages = sorted({prov.page_no for item in chunk.meta.doc_items for prov in item.prov})
-        chunks.append(Chunk(i, chunk.text, search_text, chunk.meta.headings or [], pages, count_tokens(search_text)))
+        items = chunk.meta.doc_items
+        pages = sorted({prov.page_no for item in items for prov in item.prov})
+        kind = ("table" if any(isinstance(item, TableItem) for item in items)
+                else "clause" if any(item.label == DocItemLabel.LIST_ITEM for item in items) else "text")
+        chunks.append(Chunk(i, chunk.text, search_text, chunk.meta.headings or [], pages,
+                            count_tokens(search_text), kind))
     return chunks
 
 

@@ -3,7 +3,7 @@
 Every method searches one chunker's chunks and returns Hits, best first. `score` means:
 cosine similarity (dense), ts_rank (keyword), RRF score (hybrid).
 
-    uv run python -m financial_rag.search "What are the payment terms in PO/2026-27/0103?" --chunker structure_ctx
+    uv run python -m financial_rag.search "What are the payment terms in PO/2026-27/0103?" --chunker structure
 """
 
 import argparse
@@ -87,7 +87,7 @@ def search(query: str, chunker: str, method: str = "hybrid", k: int = TOP_K, doc
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Search one chunker's chunks (read-only).")
     ap.add_argument("query")
-    ap.add_argument("--chunker", default="structure_ctx", help="recursive_ctx | page_ctx | structure_ctx")
+    ap.add_argument("--chunker", default="structure", help="structure | hybrid")
     ap.add_argument("--method", choices=METHODS, default="hybrid")
     ap.add_argument("-k", type=int, default=5)
     args = ap.parse_args()

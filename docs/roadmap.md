@@ -10,14 +10,14 @@ One step at a time; each step is reviewed before the next starts.
 | 2 | Test set with varied layouts (the current corpus is one template) | Evaluation design, avoiding a biased test set | Done (`evals/data_v2/`) |
 | 3 | Chunker: Docling `HybridChunker`, token limit matched to the embedding model | Token-aware chunking, chunk context | Done (`chunkers.py`) |
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | Done (`structure_aware_chunker.py`) |
-| 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py` structure part, `doc_info.py`) | Pipeline design, idempotency | — |
-| 6 | Retrieval evaluation: chunkers (HybridChunker, ours, recursive baseline) × dense / keyword / hybrid | Choosing by measurement | — |
+| 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py`, `doc_info.py`) | Pipeline design, idempotency | Done (run 4) |
+| 6 | Retrieval evaluation on test set v2: chunkers (HybridChunker as baseline, ours) × dense / keyword / hybrid | Choosing by measurement | — |
 | 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | — |
 | 8 | Generation: grounded answers, page citations, guardrails, answer-quality checks | Faithfulness, citations | — |
 | 9 | API and UI on the new pipeline | — | — |
 
 **Decisions.** Chunks carry a light context prefix taken from Docling (title, section); field extraction waits.
-`evals/results.json` is kept as the regex baseline.
+`evals/results.json` is kept as the regex baseline. No recursive baseline: HybridChunker (Docling's default) is the one to beat.
 
 ## Step 1 findings (one PO, one invoice)
 
@@ -78,6 +78,15 @@ One step at a time; each step is reviewed before the next starts.
   one clause per chunk. Chunks: A 16, B 15, C 18, D 9 (HybridChunker: 8, 12, 14, 8).
 - **Still weak:** layout D term boundaries (lost in Docling, sentence split cuts at the limit);
   layout B reading order; chunks reach about 320 tokens with the header. Rules are heuristics: step 6 decides.
+
+## Step 5: ingestion (`ingest.py`, migration 0002)
+
+- Docling converts each file once; its JSON is stored in `documents.docling_json`. A known file (same hash) reuses it.
+- Page texts come from Docling; every chunker (`hybrid`, `structure`) replaces the file's chunks; embeddings are stored once per text.
+- Run config records the Docling version, chunker settings and tokenizer. `--dry-run` converts and chunks without DB or API.
+- `chunking.py` and `doc_info.py` removed; `doc_type` / `doc_number` stay empty until field extraction.
+- **Run 4 (test set v2):** 16 documents, 20 pages. hybrid 182 chunks, structure 201; 49 texts identical in both, so embedded once.
+- Old v1 rows are kept; search always filters by chunker, so they don't affect the new chunkers.
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
