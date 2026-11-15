@@ -23,6 +23,8 @@ TOKENIZER = "sentence-transformers/all-MiniLM-L6-v2"
 MAX_TOKENS = 256
 HEADER_TOKENS = 64  # document header added to every chunk's search_text
 HEADER_ITEM_TOKENS = 24  # longer page-1 texts (addresses, paragraphs) are left out of the header
+ITEMS = 3  # line-item descriptions added to the header: people ask about "the A4 paper order"
+ITEMS_TOKENS = 32
 
 
 @dataclass
@@ -53,15 +55,34 @@ def table_rows(table: TableItem) -> list[str]:
     return [" | ".join(cells) for cells in rows.values()]
 
 
+def item_names(doc: DoclingDocument) -> str:
+    """First descriptions from the line-items table: the largest table, its column with the longest texts."""
+    if not doc.tables:
+        return ""
+    table = max(doc.tables, key=lambda t: t.data.num_rows * t.data.num_cols)
+    cells = [c for c in table.data.table_cells if not c.column_header and c.col_span == 1 and c.text.strip()]
+    columns: dict[int, list] = {}
+    for c in cells:
+        columns.setdefault(c.start_col_offset_idx, []).append(c)
+    if not columns:
+        return ""
+    widest = max(columns.values(), key=lambda col: sum(len(c.text) for c in col) / len(col))
+    names = [c.text.strip() for c in sorted(widest, key=lambda c: c.start_row_offset_idx)][:ITEMS]
+    text = "; ".join(names)
+    while count_tokens(text) > ITEMS_TOKENS and " " in text:
+        text = text.rsplit(" ", 1)[0]
+    return text
+
+
 def doc_header(doc: DoclingDocument) -> str:
-    """Short page-1 lines (title, numbers, dates, party names) that identify the document.
+    """Short page-1 lines (title, numbers, dates, party names) plus the first item names.
 
     Taken in reading order, skipping long texts and line-item tables, until HEADER_TOKENS.
     No field extraction: it works the same for any layout.
     """
     parts, used = [], 0
     for item, _ in doc.iterate_items():
-        if not item.prov or item.prov[0].page_no != 1:
+        if not item.prov or item.prov[0].page_no != 1 or used >= HEADER_TOKENS:
             break
         if isinstance(item, TableItem):
             if any(c.column_header for c in item.data.table_cells) or item.data.num_rows > 4:
@@ -72,11 +93,11 @@ def doc_header(doc: DoclingDocument) -> str:
         else:
             continue
         for line in lines:
-            parts.append(line)
-            used += count_tokens(line)
-            if used >= HEADER_TOKENS:
-                return " | ".join(parts)
-    return " | ".join(parts)
+            if used < HEADER_TOKENS:
+                parts.append(line)
+                used += count_tokens(line)
+    items = item_names(doc)
+    return " | ".join(parts + ([f"Items: {items}"] if items else []))
 
 
 class MarkdownTables(ChunkingSerializerProvider):

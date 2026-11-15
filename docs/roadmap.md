@@ -12,7 +12,7 @@ One step at a time; each step is reviewed before the next starts.
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | Done (`structure_aware_chunker.py`) |
 | 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py`, `doc_info.py`) | Pipeline design, idempotency | Done (run 4) |
 | 6 | Retrieval evaluation on test set v2: chunkers (HybridChunker as baseline, ours) × dense / keyword / hybrid | Choosing by measurement | Done (`results_v2.json`) |
-| 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | — |
+| 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | In progress (7a done) |
 | 8 | Generation: grounded answers, page citations, guardrails, answer-quality checks | Faithfulness, citations | — |
 | 9 | API and UI on the new pipeline | — | — |
 
@@ -111,6 +111,20 @@ One step at a time; each step is reviewed before the next starts.
   - 5 neighbouring document numbers (dense embeddings blur "0204" vs "0206"; keyword search too weak to rescue).
 - **Next (step 7):** item names in the document header; keyword search for document numbers; reranker;
   a lenient metric (linked PO + invoice) next to the strict one. 512 tokens: low priority.
+
+## Step 7: retrieval improvements
+
+**7a. Item names in the document header** (`item_names()`, run 5 → `evals/results_v2_items.json`)
+
+- Header ends with "Items: …": first 3 descriptions from the largest table's longest-text column (no field extraction).
+  Correct for all 16 documents, including layout C. Header now about 90–117 tokens.
+- `evaluate.py`: lenient **MRR linked** (a PO and its invoice both count) next to the strict MRR.
+- **structure + dense:** MRR 0.564 → 0.619, MRR linked 0.644 → 0.697, Hit@1 0.40 → 0.50, Hit@5 0.80 → 0.78,
+  paraphrase MRR 0.47 → 0.63. hybrid + dense: 0.506 → 0.525.
+- **Misses at rank 1:** same vendor, other PO 8 → 4; PO ↔ own invoice 10 → 11; neighbouring numbers 5 → 5.
+- **Side effects:** rate (table) questions dropped (e.g. rank 2 → 6): every chunk now names the items, so the
+  line-items chunk stands out less. Keyword search worse (0.457 → 0.403): item words in every chunk, no IDF.
+- Kept: net gain. Next: reranker (table questions, PO vs invoice) or keyword search on chunk text for numbers.
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
