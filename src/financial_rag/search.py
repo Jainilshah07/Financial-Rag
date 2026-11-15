@@ -1,13 +1,16 @@
-"""Retrieval over Postgres: dense (pgvector), keyword (full-text), hybrid (RRF).
+"""Retrieval over Postgres: dense (pgvector), keyword (full-text), hybrid (RRF), rerank (cross-encoder),
+dense_ids (dense within the documents a question's document number points to).
 
 Every method searches one chunker's chunks and returns Hits, best first. `score` means:
-cosine similarity (dense), ts_rank (keyword), RRF score (hybrid).
+cosine similarity (dense, dense_ids), ts_rank (keyword), RRF score (hybrid), cross-encoder relevance (rerank).
 
     uv run python -m financial_rag.search "What are the payment terms in PO/2026-27/0103?" --chunker structure
 """
 
 import argparse
+import re
 from dataclasses import dataclass, replace
+from functools import cache
 
 from sqlalchemy import Text, cast, func, select
 from sqlalchemy.dialects.postgresql import TSQUERY
@@ -16,8 +19,10 @@ from financial_rag.db import Chunk, Document, Embedding, get_sessionmaker
 from financial_rag.embeddings import MODEL_KEY, embed_query
 
 TOP_K = 10
-CANDIDATES = 20  # per list, before fusion
+CANDIDATES = 20  # per list, before fusion or reranking
 RRF_K = 60
+RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+IDENTIFIER = re.compile(r"[A-Za-z0-9]+(?:[/-][A-Za-z0-9]+)+")  # e.g. PO/2026-27/0204, BST-1209
 
 
 @dataclass
@@ -30,23 +35,27 @@ class Hit:
     section: str | None
     text: str
     score: float
+    search_text: str  # header + section + text: what was embedded, and what the reranker reads
 
 
 def _hits(rows) -> list[Hit]:
-    return [Hit(c.id, c.document_id, filename, c.page_start, c.page_end, c.section, c.text, float(score))
-            for c, filename, score in rows]
+    return [Hit(c.id, c.document_id, filename, c.page_start, c.page_end, c.section, c.text, float(score),
+                c.search_text) for c, filename, score in rows]
 
 
-def _base(score, chunker: str, document_id: int | None):
+def _base(score, chunker: str, document_id: int | None, document_ids: set[int] | None = None):
     stmt = (select(Chunk, Document.filename, score.label("score"))
             .join(Document, Document.id == Chunk.document_id)
             .where(Chunk.chunker == chunker))
+    if document_ids:
+        stmt = stmt.where(Chunk.document_id.in_(document_ids))
     return stmt.where(Chunk.document_id == document_id) if document_id else stmt
 
 
-def dense(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
+def dense(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None,
+          document_ids: set[int] | None = None) -> list[Hit]:
     distance = Embedding.embedding.cosine_distance(embed_query(query))
-    stmt = (_base(1 - distance, chunker, document_id)
+    stmt = (_base(1 - distance, chunker, document_id, document_ids)
             .join(Embedding, (Embedding.text_hash == Chunk.text_hash) & (Embedding.model == MODEL_KEY))
             .order_by(distance).limit(k))
     return _hits(s.execute(stmt))
@@ -76,7 +85,48 @@ def hybrid(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None 
     return [replace(hits[i], score=scores[i]) for i in best]
 
 
-METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid}
+@cache
+def reranker():
+    from sentence_transformers import CrossEncoder  # heavy import; only needed when reranking
+
+    return CrossEncoder(RERANK_MODEL)
+
+
+def rerank(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
+    """Dense top CANDIDATES, re-scored by a cross-encoder that reads the question and each chunk together."""
+    candidates = dense(s, query, chunker, CANDIDATES, document_id)
+    if not candidates:
+        return []
+    scores = reranker().predict([(query, h.search_text) for h in candidates])
+    ranked = sorted(zip(candidates, scores), key=lambda pair: pair[1], reverse=True)[:k]
+    return [replace(h, score=float(score)) for h, score in ranked]
+
+
+def identifiers(query: str) -> list[str]:
+    """Document-number-like tokens: letters, at least 3 digits and a / or - (not dates, not "A4")."""
+    return [t for t in IDENTIFIER.findall(query) if any(c.isalpha() for c in t) and sum(c.isdigit() for c in t) >= 3]
+
+
+def identifier_documents(s, query: str, chunker: str) -> set[int]:
+    """Documents whose chunks contain a question's identifier as an exact full-text token.
+
+    Postgres keeps "PO/2026-27/0204" as one token, so this is an exact match, not a similarity.
+    A PO number also appears on its invoice, so both are kept; ranking picks between them.
+    """
+    found: set[int] = set()
+    for token in identifiers(query):
+        found |= set(s.scalars(select(Chunk.document_id).distinct().where(
+            Chunk.chunker == chunker, Chunk.search_tsv.op("@@")(func.plainto_tsquery("english", token)))))
+    return found
+
+
+def dense_ids(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
+    """Dense search; when the question names a known document number, only within those documents."""
+    documents = None if document_id else identifier_documents(s, query, chunker)
+    return dense(s, query, chunker, k, document_id, documents or None)
+
+
+METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid, "rerank": rerank, "dense_ids": dense_ids}
 
 
 def search(query: str, chunker: str, method: str = "hybrid", k: int = TOP_K, document_id: int | None = None) -> list[Hit]:

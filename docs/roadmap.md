@@ -126,6 +126,34 @@ One step at a time; each step is reviewed before the next starts.
   line-items chunk stands out less. Keyword search worse (0.457 → 0.403): item words in every chunk, no IDF.
 - Kept: net gain. Next: reranker (table questions, PO vs invoice) or keyword search on chunk text for numbers.
 
+**7b. Reranker** (`rerank` method, run 5 → `evals/results_v2_rerank.json`)
+
+- Dense top 20 → `cross-encoder/ms-marco-MiniLM-L-6-v2` scores (question, `search_text`) → top 10.
+- **structure:** dense MRR 0.619 → rerank 0.603, Hit@1 0.50 → 0.47, Hit@5 0.78 → 0.82; 10 questions better, 11 worse.
+  Layout C 0.56 → 0.41, D 0.45 → 0.63.
+- **hybrid:** dense 0.525 → rerank 0.602, Hit@1 0.42 → 0.50; 12 better, 8 worse.
+- Correct chunk in the dense top 20: 37/40 (structure), 35/40 (hybrid), so candidates are not the limit.
+- **Misses at rank 1 (structure):** PO ↔ invoice 11 → 8, same vendor 4 → 1, numbers 5 → 5, but right document /
+  wrong chunk 0 → 7. Picks the right document more often, the right chunk less often: table rows lost
+  (two rate questions dropped out of the top 10). Likely cause: MS MARCO is trained on prose passages, not table rows.
+- **Decision:** dense stays the default for the structure chunker; `rerank` kept as an optional method.
+  A stronger reranker (`bge-reranker-base`) is untested.
+
+**7c. Document-number filter** (`dense_ids` method, run 5 → `evals/results_v2_numbers.json`)
+
+- If the question has an identifier (letters, 3+ digits, a `/` or `-`; e.g. PO/2026-27/0204, BST-1209),
+  dense search runs only within documents whose chunks contain it as an exact Postgres token
+  (Postgres keeps such numbers as one token). No match → normal dense search. No field extraction.
+- Caught all 13 identifier questions, no false positives ("A4"). Kept the right documents for all 13:
+  invoice number → that invoice; PO number → the PO and its invoice.
+- **structure:** dense → dense_ids MRR 0.619 → 0.707, Hit@1 0.50 → 0.60, Hit@5 0.78 → 0.85,
+  identifier MRR 0.59 → 0.86. Layouts A/B/C/D 0.74/0.83/0.63/0.62. 7 questions better, none worse.
+- **hybrid:** dense 0.525 → dense_ids 0.642.
+- **Misses at rank 1 (structure):** numbers 5 → 0; PO ↔ invoice 11 (unchanged, now the main problem);
+  same vendor 2; right document / wrong chunk 3 (e.g. "which PO is this invoice against?": every chunk
+  carries the number in its header, so the header-grid chunk doesn't stand out).
+- Measured alone; not combined with rerank yet.
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 
