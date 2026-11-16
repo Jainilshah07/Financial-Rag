@@ -1,0 +1,121 @@
+{
+ "questions": 40,
+ "judgments": {
+  "correctness": {
+   "completed": 40,
+   "pending": 0,
+   "failed": 0
+  },
+  "groundedness": {
+   "completed": 40,
+   "pending": 0,
+   "failed": 0
+  }
+ },
+ "correctness": {
+  "correct": 38,
+  "wrong": 2
+ },
+ "correctness_original": {},
+ "correct_rate": 0.95,
+ "groundedness": {
+  "grounded": 37,
+  "ungrounded": 3
+ },
+ "ungrounded_rate": 0.075,
+ "citations": {
+  "valid": 44,
+  "incorrect": 1,
+  "total": 45,
+  "valid_rate": 0.9777777777777777
+ },
+ "answers_missing_citations": 0,
+ "answers_with_a_valid_citation": 39,
+ "by_layout": {
+  "A": {
+   "correct": 9,
+   "wrong": 1
+  },
+  "B": {
+   "correct": 10
+  },
+  "C": {
+   "correct": 10
+  },
+  "D": {
+   "correct": 9,
+   "wrong": 1
+  }
+ },
+ "judge_model": "qwen/qwen3.8-27b",
+ "api_runs": [
+  {
+   "elapsed_seconds": 2015.0,
+   "groq_answer": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 40.8,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 31.9,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 40,
+    "failed_calls": 0
+   },
+   "groq_judge": {
+    "attempts": 112,
+    "failed_attempts": 33,
+    "seconds": 59.0,
+    "retries": 32,
+    "failed_calls": 1,
+    "stopped_daily_quota": false
+   },
+   "gemini_embedding": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 26.5,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  },
+  {
+   "elapsed_seconds": 12.9,
+   "groq_answer": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "calls": 0,
+    "retries": 0,
+    "cache_hits": 0,
+    "failed_calls": 0
+   },
+   "groq_judge": {
+    "attempts": 1,
+    "failed_attempts": 0,
+    "seconds": 0.6,
+    "retries": 0,
+    "failed_calls": 0,
+    "stopped_daily_quota": false
+   },
+   "gemini_embedding": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "calls": 0,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  }
+ ]
+}

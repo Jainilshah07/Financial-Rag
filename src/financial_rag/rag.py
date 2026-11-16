@@ -57,11 +57,27 @@ llm = ChatGroq(
 )
 
 
+def build_context(chunks: list[dict]) -> str:
+    """Passages grouped by document, each group headed once by its document header (type, parties, items).
+
+    Groups follow their best-ranked passage; inside a group passages keep retrieval order. Every passage is
+    kept (no de-duplication) and labelled [n] with its original rank.
+    """
+    groups: dict = {}
+    for rank, c in enumerate(chunks, 1):
+        groups.setdefault(c.get("document_id", c["filename"]), []).append((rank, c))
+    blocks = []
+    for group in groups.values():
+        first = group[0][1]
+        head = "\n".join(filter(None, [f"Document: {first['filename']}", first.get("header", "")]))
+        passages = "\n\n".join(f"[{rank}] {c['filename']}, Page {c['page']}:\n{c['text']}" for rank, c in group)
+        blocks.append(f"{head}\n\n{passages}")
+    return "\n\n---\n\n".join(blocks) or "(no relevant passages were retrieved)"
+
+
 def stream_answer(chunks: list[dict], question: str):
     """Yield the answer text piece by piece from already-retrieved chunks."""
-    context = "\n\n".join(
-        f"{c['filename']}, Page {c['page']}:\n{c['text']}" for c in chunks
-    ) or "(no relevant passages were retrieved)"
+    context = build_context(chunks)
 
     for part in (prompt | llm).stream({"context": context, "question": question}):
         if part.content:

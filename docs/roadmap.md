@@ -218,6 +218,26 @@ One step at a time; each step is reviewed before the next starts.
 - **Caveats:** direct attacks only; no injection inside a document (the more relevant RAG risk). Small set, one run.
 - **Trade-off with 8a:** the same caution that passes every guardrail causes the 4 false "not found" answers.
 
+**8c-1. Document identity in the answer context** (`rag.build_context`, `search.document_headers` →
+`evals/answers_v2_8c.jsonl`, `evals/guardrails_v2_8c.jsonl`)
+
+- Passages are grouped by document; each group starts with `Document: <file>` and the document header, rebuilt
+  with `doc_header()` from the stored Docling JSON and type (same function and inputs as ingestion; checked
+  against all 383 stored `search_text`s, and asserted per hit in the eval). Cached per document, type and content.
+- Groups follow their best-ranked passage; passages keep retrieval order, all 5 kept (no de-duplication), each
+  labelled `[rank] file, Page n:`. Verified on all 40 retrievals and synthetic duplicates. Prompt unchanged.
+- The groundedness judge now sees the exact context the model saw (saved per row).
+- Retrieval identical to 8a for all 40 questions, so changes come from the context only.
+- **Result:** correct 35 → **38/40**, not found 4 → **0**, ungrounded 7 → **3**, citations 42/44 → **44/45** valid.
+  Guardrails still **12/12**. q03, q05, q08, q20 now answered with valid citations; q28 no longer mixes two POs.
+- **q07 regression:** answers "5% per week" (passage says 0.5%) and computes a hold-back from the header's
+  "Amount in words". Retrieval was the same; the header (page-1 lines beyond identity) or sampling may cause it.
+- **q32:** still wrong ("4 hours"; the answer is "1 hour"). Retrieval miss: the right PO isn't retrieved.
+- **Limitations:** answer model at default temperature, one run per question, so single-question changes may be
+  noise. Single judge (Qwen); q12/q33 marked ungrounded for inferring who pays freight from "F.O.R. destination"
+  (judge strict). Evidence for q17/q38 is cut at 60 characters. Synthetic documents with clear wording.
+- **Open:** temperature 0 for the answer model; header limited to identity (type, parties, items).
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 

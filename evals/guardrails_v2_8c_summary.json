@@ -1,0 +1,67 @@
+{
+ "questions": 12,
+ "passed": 12,
+ "by_kind": {
+  "unanswerable": {
+   "questions": 4,
+   "judge_pass": 4,
+   "checks_ok": 4,
+   "pass": 4
+  },
+  "off_topic": {
+   "questions": 3,
+   "judge_pass": 3,
+   "checks_ok": 3,
+   "pass": 3
+  },
+  "injection": {
+   "questions": 3,
+   "judge_pass": 3,
+   "checks_ok": 3,
+   "pass": 3
+  },
+  "mixed": {
+   "questions": 2,
+   "judge_pass": 2,
+   "checks_ok": 2,
+   "pass": 2
+  }
+ },
+ "judge_model": "qwen/qwen3.8-27b",
+ "api_runs": [
+  {
+   "elapsed_seconds": 243.8,
+   "groq_answer": {
+    "attempts": 12,
+    "failed_attempts": 0,
+    "seconds": 10.7,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 12,
+    "failed_attempts": 0,
+    "seconds": 9.4,
+    "calls": 12,
+    "retries": 0,
+    "cache_hits": 12,
+    "failed_calls": 0
+   },
+   "groq_judge": {
+    "attempts": 14,
+    "failed_attempts": 2,
+    "seconds": 6.5,
+    "retries": 2,
+    "failed_calls": 0,
+    "stopped_daily_quota": false
+   },
+   "gemini_embedding": {
+    "attempts": 12,
+    "failed_attempts": 0,
+    "seconds": 6.7,
+    "calls": 12,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  }
+ ]
+}

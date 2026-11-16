@@ -1,15 +1,16 @@
 """Answer and guardrail evaluation (step 8): generate with the unchanged pipeline, then judge.
 
-    uv run python -m evals.evaluate_answers --set answers      # 8a: 40 questions -> evals/answers_v2_8a_qwen_fixed.jsonl
-    uv run python -m evals.evaluate_answers --set guardrails   # 8b: 12 questions -> evals/guardrails_v2_8b_qwen.jsonl
+    uv run python -m evals.evaluate_answers --set answers      # 8a: 40 questions -> evals/answers_v2_8c.jsonl
+    uv run python -m evals.evaluate_answers --set guardrails   # 8b: 12 questions -> evals/guardrails_v2_8c.jsonl
 
-Pipeline as in /ask: structure chunker, dense_intent, top 5 chunks, rag.stream_answer (prompt unchanged).
+Pipeline as in /ask: structure chunker, dense_intent, top 5 chunks with document headers, rag.stream_answer.
+8c: earlier result files (8a, 8b) are kept; 8c answers are generated fresh.
 Judge: Groq Qwen (another model family than the answer model), temperature 0, strict JSON schema.
 8a answers are never regenerated. answers_v2_8a.jsonl (Gemini judge) and answers_v2_8a_qwen.jsonl (first Qwen
 run) are kept as they are; the fixed run starts from the latter, keeps its groundedness and stores its
 correctness and citation check as *_original for comparison.
   correctness  - sees question + reference (answer if any, evidence, table context); never the passages
-  groundedness - sees passages + answer; never the reference
+  groundedness - sees the exact context the answer model saw (headers + passages) + answer; never the reference
   citations    - deterministic: each "(file, Page n)" is valid / incorrect / unsupported; none at all = missing
 Read-only on the database. Each finished stage is appended to the results file at once; a re-run resumes
 and never regenerates a saved answer. API calls are counted per service (wrappers, no production changes).
@@ -32,7 +33,7 @@ from evals.corpus import norm
 from financial_rag import classify, embeddings, rag
 from financial_rag.config import settings
 from financial_rag.db import Document, DocumentPage, get_sessionmaker
-from financial_rag.search import dense_intent
+from financial_rag.search import dense_intent, document_headers
 
 ROOT = Path(__file__).parent
 DATA = ROOT / "data_v2"
@@ -42,8 +43,8 @@ JUDGE_MAX_TOKENS = 200  # the output-tokens-per-minute limit (1,000) counts what
 JUDGE_PAUSE = 12  # seconds after each judge call: 5 calls/min fits that limit
 JUDGE_WAITS = (10, 30, 60)  # seconds between judge retries (per-minute rate limits, overload)
 DAILY_QUOTA = "per day"  # in a 429 message for a daily limit: "requests per day (RPD)", "tokens per day (TPD)"
-SETS = {"answers": ("questions.jsonl", "answers_v2_8a_qwen_fixed", "answers_v2_8a_qwen"),  # (questions, results, from)
-        "guardrails": ("guardrails.jsonl", "guardrails_v2_8b_qwen", None)}
+SETS = {"answers": ("questions.jsonl", "answers_v2_8c", None),  # (questions, results, reuse answers from)
+        "guardrails": ("guardrails.jsonl", "guardrails_v2_8c", None)}
 REJUDGED = ("correctness", "citation_check")  # re-done in the fixed run; the earlier ones kept as *_original
 HYPHENS = str.maketrans({c: "-" for c in "\u2010\u2011\u2012\u2212"})  # e.g. non-breaking hyphen in file names
 LEAK_PHRASES = ["SECURITY RULES", "HOW TO RESPOND", "untrusted DATA", "Financial Document Assistant"]
@@ -123,12 +124,16 @@ def api_report(before: dict) -> dict:
 
 def answer_question(s, question: str) -> dict:
     hits = dense_intent(s, question, CHUNKER, TOP_K)
-    chunks = [{"filename": h.filename, "page": h.page_start, "text": h.text} for h in hits]  # what /ask sends
+    headers = document_headers(s, {h.document_id for h in hits})
+    assert all(h.search_text.startswith(headers[h.document_id] + "\n") for h in hits), "header differs from ingestion"
+    chunks = [{"document_id": h.document_id, "filename": h.filename, "page": h.page_start, "text": h.text,
+               "header": headers[h.document_id]} for h in hits]  # what /ask sends
     started = time.perf_counter()
     answer = "".join(rag.stream_answer(chunks, question))
     API["groq_answer"]["seconds"] += time.perf_counter() - started
     intent = classify.classify_question(question)  # cached: the call dense_intent already made
-    return {"answer": answer, "intent": intent.doc_type, "intent_failed": intent.failed,
+    return {"answer": answer, "context": rag.build_context(chunks), "intent": intent.doc_type,
+            "intent_failed": intent.failed,
             "passages": [{"chunk_id": h.chunk_id, "filename": h.filename, "page_start": h.page_start,
                           "page_end": h.page_end, "text": h.text} for h in hits]}
 
@@ -234,8 +239,9 @@ def judge_correctness(q: dict, answer: str) -> dict:
     return judge(CORRECTNESS_PROMPT, user, schema("correctness", ("correct", "partial", "wrong", "not_found"), REASON))
 
 
-def judge_groundedness(passages: list[dict], answer: str) -> dict:
-    user = f"<passages>\n{passages_text(passages)}\n</passages>\n<answer>\n{answer}\n</answer>"
+def judge_groundedness(row: dict) -> dict:
+    context = row.get("context") or passages_text(row["passages"])  # rows before 8c have no saved context
+    user = f"<passages>\n{context}\n</passages>\n<answer>\n{row['answer']}\n</answer>"
     return judge(GROUNDEDNESS_PROMPT, user, schema("groundedness", ("grounded", "ungrounded", "no_claims"), CLAIMS))
 
 
@@ -394,7 +400,7 @@ def main() -> None:
                                                             row["target_pages"], row["correctness"]["verdict"])
                     save(results, row)
                 if args.set == "answers" and judge_pending(row, "groundedness"):
-                    row["groundedness"] = judge_groundedness(row["passages"], row["answer"])
+                    row["groundedness"] = judge_groundedness(row)
                     save(results, row)
                 if args.set == "guardrails" and judge_pending(row, "judge"):
                     row["judge"] = judge_guardrail(q, row["answer"])

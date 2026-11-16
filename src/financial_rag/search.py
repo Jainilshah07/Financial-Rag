@@ -14,9 +14,11 @@ import re
 from dataclasses import dataclass, replace
 from functools import cache
 
+from docling_core.types.doc import DoclingDocument
 from sqlalchemy import Text, cast, func, select
 from sqlalchemy.dialects.postgresql import TSQUERY
 
+from financial_rag.chunkers import doc_header
 from financial_rag.db import Chunk, Document, Embedding, get_sessionmaker
 from financial_rag.embeddings import MODEL_KEY, embed_query
 
@@ -149,6 +151,22 @@ def dense_intent(s, query: str, chunker: str, k: int = TOP_K, document_id: int |
 
 METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid, "rerank": rerank, "dense_ids": dense_ids,
            "dense_intent": dense_intent}
+
+_headers: dict[tuple, str] = {}
+
+
+def document_headers(s, document_ids: set[int]) -> dict[int, str]:
+    """Each document's header for the answer context: doc_header() on the stored Docling JSON and type, exactly
+    as at ingestion, so retrieval and generation see the same identity. Cached per (document, type, content)."""
+    out = {}
+    for doc_id, doc_type, content_hash in s.execute(
+            select(Document.id, Document.doc_type, Document.content_hash).where(Document.id.in_(document_ids))):
+        key = (doc_id, doc_type, content_hash)
+        if key not in _headers:
+            data = s.scalar(select(Document.docling_json).where(Document.id == doc_id))
+            _headers[key] = doc_header(DoclingDocument.model_validate(data), doc_type) if data else ""
+        out[doc_id] = _headers[key]
+    return out
 
 
 def search(query: str, chunker: str, method: str = "hybrid", k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
