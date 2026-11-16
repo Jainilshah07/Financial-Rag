@@ -1,0 +1,114 @@
+{
+ "questions": 40,
+ "judgments": {
+  "correctness": {
+   "completed": 13,
+   "pending": 0,
+   "failed": 27
+  },
+  "groundedness": {
+   "completed": 14,
+   "pending": 0,
+   "failed": 26
+  }
+ },
+ "correctness": {
+  "wrong": 1,
+  "correct": 10,
+  "not_found": 2
+ },
+ "correct_rate": 0.7692307692307693,
+ "groundedness": {
+  "grounded": 9,
+  "no_claims": 3,
+  "ungrounded": 2
+ },
+ "ungrounded_rate": 0.14285714285714285,
+ "citations": {
+  "valid": 10,
+  "total": 10,
+  "valid_rate": 1.0
+ },
+ "answers_missing_citations": 1,
+ "answers_with_a_valid_citation": 10,
+ "by_layout": {
+  "A": {
+   "wrong": 1,
+   "correct": 7,
+   "not_found": 2
+  },
+  "B": {
+   "correct": 3
+  }
+ },
+ "judge_model": "gemini-3.5-flash",
+ "api_runs": [
+  {
+   "elapsed_seconds": 4169.3,
+   "groq_answer": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 34.2,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 25.7,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 40,
+    "failed_calls": 0
+   },
+   "gemini_judge": {
+    "attempts": 249,
+    "failed_attempts": 225,
+    "seconds": 443.1,
+    "retries": 169,
+    "failed_calls": 56
+   },
+   "gemini_embedding": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 20.0,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  },
+  {
+   "elapsed_seconds": 12.7,
+   "groq_answer": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "calls": 0,
+    "retries": 0,
+    "cache_hits": 0,
+    "failed_calls": 0
+   },
+   "gemini_judge": {
+    "attempts": 4,
+    "failed_attempts": 1,
+    "seconds": 11.5,
+    "retries": 0,
+    "failed_calls": 0,
+    "stopped_daily_quota": true
+   },
+   "gemini_embedding": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "calls": 0,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  }
+ ]
+}

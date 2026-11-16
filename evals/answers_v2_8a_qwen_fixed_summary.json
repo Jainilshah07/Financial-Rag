@@ -1,0 +1,94 @@
+{
+ "questions": 40,
+ "judgments": {
+  "correctness": {
+   "completed": 40,
+   "pending": 0,
+   "failed": 0
+  },
+  "groundedness": {
+   "completed": 40,
+   "pending": 0,
+   "failed": 0
+  }
+ },
+ "correctness": {
+  "correct": 35,
+  "not_found": 4,
+  "wrong": 1
+ },
+ "correctness_original": {
+  "wrong": 8,
+  "correct": 22,
+  "not_found": 10
+ },
+ "correct_rate": 0.875,
+ "groundedness": {
+  "grounded": 30,
+  "no_claims": 3,
+  "ungrounded": 7
+ },
+ "ungrounded_rate": 0.175,
+ "citations": {
+  "valid": 42,
+  "incorrect": 2,
+  "total": 44,
+  "valid_rate": 0.9545454545454546
+ },
+ "answers_missing_citations": 0,
+ "answers_with_a_valid_citation": 35,
+ "by_layout": {
+  "A": {
+   "correct": 7,
+   "not_found": 3
+  },
+  "B": {
+   "correct": 9,
+   "not_found": 1
+  },
+  "C": {
+   "correct": 10
+  },
+  "D": {
+   "correct": 9,
+   "wrong": 1
+  }
+ },
+ "judge_model": "qwen/qwen3.8-27b",
+ "api_runs": [
+  {
+   "elapsed_seconds": 1014.9,
+   "groq_answer": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "calls": 0,
+    "retries": 0,
+    "cache_hits": 0,
+    "failed_calls": 0
+   },
+   "groq_judge": {
+    "attempts": 55,
+    "failed_attempts": 15,
+    "seconds": 24.4,
+    "retries": 15,
+    "failed_calls": 0,
+    "stopped_daily_quota": false
+   },
+   "gemini_embedding": {
+    "attempts": 0,
+    "failed_attempts": 0,
+    "seconds": 0,
+    "calls": 0,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  }
+ ]
+}

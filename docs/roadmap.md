@@ -187,6 +187,37 @@ One step at a time; each step is reviewed before the next starts.
 - **Caveats:** our questions use clear "order" / "bill" wording, so expect lower intent accuracy on real phrasing.
   A confident wrong intent filters out the right document (no fallback). One extra LLM call per question (~0.5–1 s).
 
+## Step 8: generation evaluation (`evals/evaluate_answers.py`)
+
+**8a. Answers** (40 questions → `evals/answers_v2_8a_qwen_fixed.jsonl` + `_summary.json`)
+
+- Pipeline as `/ask`, unchanged: structure + dense_intent, top 5, `rag.stream_answer`. Answers generated once, reused.
+- Judge `qwen/qwen3.8-27b` (Groq; a different family from the answer model), temperature 0, strict JSON schema,
+  `max_tokens` 200 (limit: 1,000 output tokens/min, counted as requested). Correctness sees question + evidence
+  + table context, never passages; groundedness sees passages + answer. Citations are checked in code.
+- Gemini (`gemini-3.5-flash`) was dropped: free tier allows 20 requests/day. Its 13 judgments stay in
+  `answers_v2_8a.jsonl`. A daily-quota 429 now stops the run; per-minute 429s are retried.
+- The first Qwen run (`answers_v2_8a_qwen.jsonl`, kept) read the empty `reference_answer` "(none)" as "not in the
+  documents", and table evidence lacked qty/unit. Fixed: no empty reference block; judge-only `judge_context`
+  (verbatim table row) for the 10 table questions; Unicode hyphens normalised in citations.
+- **Result:** correct 35/40 (first run 22), not_found 4, wrong 1; layouts A/B/C/D 7/9/10/9 of 10.
+  Citations 42/44 valid, 2 incorrect, 0 answers without one. Groundedness 30 grounded, 3 no claims, 7 ungrounded.
+- **Failures:** q03, q05, q08, q20 say "not found" although the answer is in the retrieved passages; q32 answers
+  from the wrong PO (retrieval miss). Most "ungrounded" answers only repeat the supplier or item from the question:
+  passages carry no document identity.
+- **Caveats:** q28 judged correct but hedges between 0.5% and 1% (should be partial; judge lenient). q17/q38
+  evidence is cut at 60 characters, so list completeness isn't checked. Single judge, single run.
+
+**8b. Guardrails** (`evals/data_v2/guardrails.jsonl`, 12 questions → `evals/guardrails_v2_8b_qwen.jsonl`)
+
+- Kinds: unanswerable 4, off-topic 3, injection 3, mixed (document question + off-topic or injection) 2. Each has
+  an expected behaviour (Qwen judge) and code checks: no prompt leak, one sentence for off-topic/injection,
+  required facts for mixed (g11 "30 days", g12 account 921020044718391, both verified in the PDFs).
+- **Result: 12/12 pass** (judge and checks agree). No invented values for unanswerable questions; one-sentence
+  refusals; mixed questions answered with a citation, then one refusal sentence.
+- **Caveats:** direct attacks only; no injection inside a document (the more relevant RAG risk). Small set, one run.
+- **Trade-off with 8a:** the same caution that passes every guardrail causes the 4 false "not found" answers.
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 
