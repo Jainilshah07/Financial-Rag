@@ -12,12 +12,14 @@ One step at a time; each step is reviewed before the next starts.
 | 4 | Chunker: our own structure-aware chunker over Docling output, with a fallback when extraction is weak | Chunking by labels, not regex | Done (`structure_aware_chunker.py`) |
 | 5 | Ingestion into Postgres with Docling; remove regex code (`chunking.py`, `doc_info.py`) | Pipeline design, idempotency | Done (run 4) |
 | 6 | Retrieval evaluation on test set v2: chunkers (HybridChunker as baseline, ours) × dense / keyword / hybrid | Choosing by measurement | Done (`results_v2.json`) |
-| 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | In progress (7a done) |
-| 8 | Generation: grounded answers, page citations, guardrails, answer-quality checks | Faithfulness, citations | — |
-| 9 | API and UI on the new pipeline | — | — |
+| 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | Done (7a–7e) |
+| 8 | Generation: grounded answers, page citations, guardrails, answer-quality checks | Faithfulness, citations | Done (8a–8c) |
+| 9 | API and UI on the new pipeline | Transparency of retrieval decisions | Done (9a, 9b) |
 
-**Decisions.** Chunks carry a light context prefix taken from Docling (title, section); field extraction waits.
-`evals/results.json` is kept as the regex baseline. No recursive baseline: HybridChunker (Docling's default) is the one to beat.
+**Decisions.** No field extraction: each document gets a header (LLM type, page-1 lines, item names) used for
+search and, since 8c, in the answer context. Default: our structure-aware chunker + `dense_intent` (number filter +
+LLM question intent → document-type filter). `evals/results.json` is kept as the regex baseline. No recursive
+baseline: HybridChunker (Docling's default) is the one to beat. Current design: [architecture.md](architecture.md).
 
 ## Step 1 findings (one PO, one invoice)
 
@@ -238,7 +240,33 @@ One step at a time; each step is reviewed before the next starts.
   (judge strict). Evidence for q17/q38 is cut at 60 characters. Synthetic documents with clear wording.
 - **Open:** temperature 0 for the answer model; header limited to identity (type, parties, items).
 
+## Step 9: API and UI on the new pipeline
+
+**9a. API** (`main.py`, `search.dense_intent_traced`)
+
+- v1 documents (no Docling JSON) stay in the database but are hidden: not listed, opened, deleted or searched
+  by id (404). Only the current chunkers (`structure`, `hybrid`) are offered or accepted (else 400).
+- `doc_number` is no longer returned (column kept for later structured extraction). `/upload` returns `doc_type`.
+- `/ask` with `dense_intent` sends a `trace`: question intent, filters actually applied (type, number) and the
+  fallback reason. Same searches as `dense_intent` (checked on 52 questions, every path, without API calls).
+
+**9b. UI**
+
+- Documents: no number column; document detail opens `structure` first; `text` chunks get a colour.
+- Upload: progress message covers Docling, classification, chunking, embedding; result shows the detected type.
+- Ask: each control is labelled (chunker, retrieval method, document, question) with a one-line explanation of
+  the choice; dropdown options explain themselves. Document picker shows file name and type. Cited chunks are matched by file and page (was page only,
+  which marked page 1 of every document); same parsing as the eval (checked on 52 answers).
+- Pipeline panel shows intent, applied filters and any fallback; a filter is shown only if it was applied.
+  The chunk drawer shows the document header sent to the model.
+
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
 
-**Open.** The mentor's scenarios (not shared yet) may replace or extend test set v2. Real public invoices: later.
+**Open.**
+
+- The mentor's scenarios (not shared yet) may replace or extend test set v2. Real public invoices: later.
+- Off-topic questions still run retrieval (top 5 always returned; the prompt refuses). Options: an `off_topic`
+  intent that skips retrieval, a similarity threshold (measure the score gap first), or marking unused chunks in the UI.
+- Answer model at temperature 0 for repeatable per-question comparisons; header limited to identity (q07 regression).
+- q32: retrieval miss (wrong PO). A stronger reranker (`bge-reranker-base`) is untested.

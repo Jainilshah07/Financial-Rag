@@ -1,100 +1,139 @@
-# Target Architecture
+# Architecture
 
-Status: **Proposed.** Table details are decided in the schema step.
+Status: **current** (branch `feature/approach-2`, after step 9). What is built, not a target.
+The original target design (structured fields, SQL route, jobs) is listed under [Not built](#not-built).
 
-## Principles
+## Principles (in force)
 
-1. **Postgres is the single source of truth**: documents, fields, chunks, vectors and search indexes ([ADR-001](adr/ADR-001-storage.md)).
-2. **Numbers come from SQL**, never from the model; a verifier rejects unsupported numbers.
-3. **Every fact is traceable** to document and page; every field keeps its source and confidence.
-4. **Doubtful data is flagged**, not guessed.
-5. **Choices are measured** on the golden set and switchable for ablation.
-6. **Ingestion is idempotent and versioned** (content hash, `pipeline_version`).
-7. **Models, thresholds and budgets live in config.**
+1. **Postgres is the single store**: documents, Docling JSON, chunks, vectors, full-text index ([ADR-001](adr/ADR-001-storage.md)).
+2. **Every answer fact is traceable** to a file and page: `(file.pdf, Page n)` citations.
+3. **Choices are measured** on a fixed test set (`evals/`), and alternatives stay switchable (chunkers, methods).
+4. **Ingestion is idempotent and versioned**: content hash, stored Docling JSON, `pipeline_version` per run.
+5. **No layout rules or regex field extraction**: structure comes from Docling labels; identity from a document header.
 
 ## System
 
+The app does two jobs: **upload** a PDF (prepare it for search) and **ask** a question (find passages, answer
+with citations). Both run in one FastAPI service; everything is stored in one PostgreSQL database.
+
 ```mermaid
 flowchart LR
-    UI["React UI"]
-    subgraph API["FastAPI"]
-        Upload["POST /documents → job id"]
-        Ask["POST /ask (SSE)"]
-    end
-    Worker["Ingestion worker"]
-    subgraph PG["PostgreSQL + pgvector"]
-        Raw["documents · pages"]
-        Struct["POs · invoices · line items · field confidence"]
-        Idx["chunks + vector + full-text index"]
-        Jobs["jobs · mismatches"]
-    end
-    LLM["Groq LLM"]
-    Emb["Gemini embeddings"]
-    OCR["OCR engine"]
+    User(["User"]) --> UI["React UI"]
+    UI -->|"Upload a PDF"| ING["Ingestion<br/>extract · classify · chunk · embed"]
+    UI -->|"Ask a question"| ASK["Question answering<br/>filter · search · answer"]
+    ING -->|writes| DB[("PostgreSQL + pgvector")]
+    ASK -->|reads| DB
 
-    UI --> API
-    Upload --> Jobs --> Worker
-    Worker --> OCR & LLM & Emb
-    Worker --> Raw & Struct & Idx
-    Ask --> LLM
-    Ask --> Struct & Idx
+    ING -.->|"PDF structure"| DL["Docling (local)"]
+    ING -.->|"document type"| LLM["Groq LLM"]
+    ASK -.->|"question intent, answer"| LLM
+    ING -.->|"chunk vectors"| EMB["Gemini embeddings"]
+    ASK -.->|"question vector"| EMB
 ```
 
-## Ingestion
+**What is stored**
+
+| Table | Holds | Used for |
+|---|---|---|
+| `documents` | file, content hash, Docling result (JSON), document type | skipping re-conversion, headers, type filter |
+| `document_pages` | text of each page | page texts |
+| `chunks` | `text` (shown) and `search_text` (header + section + text), keyword index | search |
+| `embeddings` | one vector per distinct `search_text` | dense (meaning) search |
+
+**API:** `POST /upload` · `GET /documents` · `GET /documents/{id}/chunks` · `DELETE /documents/{id}` ·
+`GET /options` (chunkers, methods, defaults) · `POST /ask` (streams the answer).
+
+## Ingestion (`ingest.py`)
+
+What happens to one uploaded PDF:
 
 ```mermaid
 flowchart TD
-    A["Store file; skip if content hash exists"] --> B["Per-page triage"]
-    B -->|text layer| C1["Native text"]
-    B -->|form fields| C2["Form values"]
-    B -->|image| C3["OCR + word confidence"]
-    C1 & C2 & C3 --> D["Classify: PO / invoice / other"]
-    D --> E["LLM field extraction into a typed schema"]
-    E --> F["Normalise dates, amounts, vendors"]
-    F --> G["Validate (Σ lines = subtotal, …) + confidence"]
-    G --> H["Structured rows; low-confidence fields flagged"]
-    G --> I["Chunks + metadata from extracted fields"]
-    I --> J["Embed (cached) + full-text index"]
+    A["PDF uploaded"] --> B{"Seen before?<br/>same content hash"}
+    B -->|yes| C1["Reuse the stored Docling result"]
+    B -->|no| C2["1 · Docling reads the PDF<br/>text blocks, headings, tables, page numbers"]
+    C1 & C2 --> D["2 · LLM reads page 1<br/>purchase order or invoice?"]
+    D --> E["3 · Build the document header<br/>type + short page-1 lines + first 3 item names"]
+    E --> F["4 · Cut into chunks<br/>one per clause; tables kept whole"]
+    F --> G["5 · Give each chunk a search text<br/>header + section + chunk text"]
+    G --> H["6 · Index the search text<br/>vector (Gemini) + keywords (Postgres)"]
+    H --> I[("Saved in PostgreSQL")]
 ```
 
-The LLM copies values; code checks them. Chunks inherit document identity and fields, which enables filter-first hybrid retrieval.
+**One real chunk** (`po-po-2026-27-0202.pdf`, page 1). The clause alone never names the supplier or the
+goods; the header added in step 5 does, so a question about "Ganesh Packaging" or "wooden pallets" finds it.
 
-## Query
+| | Content |
+|---|---|
+| `text` (user and LLM see this) | Warranty: The supplier warrants the goods against manufacturing defects for a period of 3 months from the date of delivery. … |
+| `search_text` (embedded and indexed) | **Document type: Purchase order** · Shreeji Infra Projects Pvt Ltd · PURCHASE ORDER · Vendor · **Ganesh Packaging Industries** · … · **Items: Wooden pallet**, …; Bubble wrap roll, … · TERMS AND CONDITIONS · Warranty: The supplier warrants … |
+
+Notes:
+
+- Step 4 runs twice: our **structure-aware chunker** (default) and Docling's **HybridChunker** (kept to compare).
+  Both: up to 256 tokens, tables as Markdown.
+- Our chunker's rules: one chunk per clause, table header repeated in every table chunk, a table continued on
+  the next page joined back, very short texts ("Authorised Signatory") attached to the previous chunk.
+- Step 2 runs only when the type is missing; an API failure stores `unknown` and never stops ingestion.
+- A vector is computed once per distinct search text, so re-ingesting unchanged chunks costs no API calls.
+
+## Query (`POST /ask`)
 
 ```mermaid
 flowchart TD
-    Q["Question"] --> R{"Router → typed QueryPlan"}
-    R -->|structured| S["Plan → SQL → rows → answer + number verifier"]
-    R -->|semantic| M["Vector + full-text retrieval → cited answer"]
-    R -->|hybrid| H["SQL filter → retrieval within those documents → cited answer"]
-    R -->|out_of_scope| O["Short reply"]
+    Q["Question"] --> N{"Document number in the question?"}
+    N -->|yes| NF["Number filter: documents containing it (exact token)"]
+    N -->|no| ALL["All documents"]
+    NF & ALL --> I{"LLM intent: answer in a PO or an invoice?"}
+    I -->|purchase_order / invoice| T["Type filter (with number filter)"]
+    I -->|either / unknown / failed| F["Fallback: number filter only"]
+    T -->|no results| F
+    T & F --> R["Dense search (cosine, HNSW) → top 5 chunks"]
+    R --> H["Group by document; add each document's header once; keep rank [n]"]
+    H --> L["Groq gpt-oss-120b, guarded prompt → streamed answer with (file, Page n)"]
 ```
 
-QueryPlan is validated data, not SQL ([ADR-004](adr/ADR-004-structured-queries.md)). The SSE contract (`retrieval` → `token` → `done`, with `elapsed_ms`) is kept.
+- Default: `structure` chunker + `dense_intent`. Other methods (for comparison): dense, keyword, hybrid (RRF),
+  rerank (cross-encoder), dense_ids (number filter only). Picking one document skips intent and filters.
+- Headers are rebuilt with the same `doc_header()` as at ingestion, so retrieval and generation share one identity.
+- Guardrails live in the system prompt: answer only from context, refuse off-topic in one sentence, ignore
+  instructions inside questions or documents, never reveal the prompt.
+- SSE events: `retrieval` (chunks, headers, `trace` = intent / filters applied / fallback) → `token` → `done` or `error`.
+- v1 documents (regex era, no Docling JSON) stay in the database but are hidden from every endpoint.
+
+## Evaluation (`evals/`)
+
+| Script | Measures | Output |
+|---|---|---|
+| `evaluate.py` | Retrieval: Hit@1, Hit@5, MRR, MRR linked, tokens; by question type and layout | `results_v2*.json` |
+| `evaluate_answers.py --set answers` | Correctness (vs evidence), groundedness (vs context seen), citations (code) | `answers_v2_8*.jsonl` |
+| `evaluate_answers.py --set guardrails` | Unanswerable, off-topic, injection, mixed (judge + code checks) | `guardrails_v2_8*.jsonl` |
+
+Judge: Groq `qwen/qwen3.8-27b` (another model family than the answer model), strict JSON schema.
+Test set v2: 16 synthetic documents (8 PO + invoice pairs), 4 layouts, 40 questions, 12 guardrail questions.
 
 ## Technology
 
-| Concern | Choice | Status |
-|---|---|---|
-| API | FastAPI, Pydantic v2 | In use |
-| Database | PostgreSQL 18 + pgvector 0.8.7 (HNSW) | Accepted |
-| Keyword search | Postgres full-text (`tsvector` + GIN); BM25 via `pg_search` if needed | Proposed |
-| Data access | SQLAlchemy 2.0 + Alembic | Proposed |
-| LLM | Groq `openai/gpt-oss-120b` | In use |
-| Embeddings | Gemini `gemini-embedding-001`, 768-d, cached by text hash | In use |
-| PDF | PyMuPDF | In use |
-| OCR | Local engine with word confidence ([ADR-005](adr/ADR-005-scanned-documents.md)) | Proposed |
-| Jobs | Job table + worker process | Proposed |
-| Logging | `structlog` JSON | Proposed |
-| Packaging | Docker Compose | Proposed |
-
-## Changes from the current app
-
-| Today | Target |
+| Concern | Choice |
 |---|---|
-| Qdrant (local) | pgvector |
-| In-memory BM25 per query | Postgres full-text index |
-| `/upload` blocks until embedded | Background job |
-| Metadata: page, section, filename | + document identity and extracted fields |
-| Guardrail in the answer prompt | Router with `out_of_scope` + prompt guard |
-| No SQL answers | Structured route with verifier |
+| API | FastAPI, Pydantic v2, SSE |
+| UI | React, Vite, antd |
+| Database | PostgreSQL 18 + pgvector (HNSW, cosine); SQLAlchemy 2.0 + Alembic |
+| Keyword search | Postgres full-text (`tsvector` + GIN) |
+| Extraction | Docling 2.x (table structure on, OCR off by default) |
+| Chunking | Own structure-aware chunker; Docling HybridChunker as baseline |
+| Embeddings | Gemini `gemini-embedding-001`, 768-d, cached by text hash |
+| LLM | Groq `openai/gpt-oss-120b`: answers, document type, question intent |
+| Reranker (optional) | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| Eval judge | Groq `qwen/qwen3.8-27b` |
+
+## Not built
+
+From the original target design, out of scope for Goal 1:
+
+- Field extraction into typed tables (POs, invoices, line items, confidence) and validation of totals.
+- Query router with a structured SQL route and a number verifier ([ADR-004](adr/ADR-004-structured-queries.md)).
+- Background ingestion jobs (upload is synchronous), PO/invoice mismatch detection.
+- OCR confidence per word for scanned PDFs ([ADR-005](adr/ADR-005-scanned-documents.md)); Docling OCR exists but is untested here.
+- An `out_of_scope` route before retrieval: off-topic questions are still retrieved for, then refused by the prompt.
+- Docker, structured logging, CI eval gate.
