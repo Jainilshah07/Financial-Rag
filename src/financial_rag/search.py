@@ -130,23 +130,35 @@ def dense_ids(s, query: str, chunker: str, k: int = TOP_K, document_id: int | No
     return dense(s, query, chunker, k, document_id, documents or None)
 
 
-def dense_intent(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
+def dense_intent_traced(s, query: str, chunker: str, k: int = TOP_K,
+                        document_id: int | None = None) -> tuple[list[Hit], dict]:
     """dense_ids, limited to the document type the question asks about when the LLM is clear about it.
 
     "either", "unknown", an API failure, or a filter that leaves no results all fall back to dense_ids.
+    Also returns what was done: the intent, the filters actually applied, and the fallback reason, if any.
     """
     from financial_rag.classify import classify_question  # LLM call; only this method needs it
 
-    if document_id:
-        return dense(s, query, chunker, k, document_id)
-    intent = classify_question(query).doc_type
-    if intent in ("purchase_order", "invoice"):
-        typed = set(s.scalars(select(Document.id).where(Document.doc_type == intent)))
-        by_number = identifier_documents(s, query, chunker)
+    if document_id:  # one document chosen by the user: no classification, no filters
+        return dense(s, query, chunker, k, document_id), {"intent": None, "intent_failed": False,
+                                                          "type_filter": None, "number_filter": False,
+                                                          "fallback": None}
+    c = classify_question(query)
+    trace = {"intent": c.doc_type, "intent_failed": c.failed, "type_filter": None, "fallback": None}
+    by_number = identifier_documents(s, query, chunker)
+    if c.doc_type in ("purchase_order", "invoice"):
+        typed = set(s.scalars(select(Document.id).where(Document.doc_type == c.doc_type)))
         documents = (by_number & typed) if by_number else typed
         if documents and (hits := dense(s, query, chunker, k, None, documents)):
-            return hits
-    return dense_ids(s, query, chunker, k)
+            return hits, {**trace, "type_filter": c.doc_type, "number_filter": bool(by_number)}
+        trace["fallback"] = f"no results within {c.doc_type} documents"
+    else:
+        trace["fallback"] = "intent classification failed" if c.failed else f"intent is {c.doc_type}"
+    return dense(s, query, chunker, k, None, by_number or None), {**trace, "number_filter": bool(by_number)}
+
+
+def dense_intent(s, query: str, chunker: str, k: int = TOP_K, document_id: int | None = None) -> list[Hit]:
+    return dense_intent_traced(s, query, chunker, k, document_id)[0]
 
 
 METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid, "rerank": rerank, "dense_ids": dense_ids,

@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from financial_rag.db import Chunk, Document, get_sessionmaker
 from financial_rag.ingest import CHUNKERS, run as ingest, sha256
 from financial_rag.rag import stream_answer
-from financial_rag.search import METHODS, document_headers
+from financial_rag.search import METHODS, dense_intent_traced, document_headers
 
 UPLOAD_DIR = Path("data/uploads").resolve()
 DEFAULT_CHUNKER = "structure"  # uploads run every chunker; this one is shown first
@@ -41,6 +41,22 @@ app.add_middleware(
 def session():
     with get_sessionmaker()() as s:
         yield s
+
+
+# Documents from the current (Docling) pipeline. v1 documents stay in the database but are hidden everywhere.
+CURRENT = Document.docling_json.isnot(None)
+
+
+def current_document(s, document_id: int) -> Document:
+    doc = s.scalar(select(Document).where(Document.id == document_id, CURRENT))
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    return doc
+
+
+def check_chunker(chunker: str) -> None:
+    if chunker not in CHUNKERS:
+        raise HTTPException(400, "Unknown chunker")
 
 
 class AskRequest(BaseModel):
@@ -89,19 +105,19 @@ def upload(file: UploadFile = File(...), s=Depends(session)):
     chunks = document_chunks(s, doc.id, DEFAULT_CHUNKER)
     if not chunks:
         raise HTTPException(400, doc.status_detail or "No readable text found in the PDF")
-    return {"document_id": doc.id, "filename": doc.filename, "chunker": DEFAULT_CHUNKER,
+    return {"document_id": doc.id, "filename": doc.filename, "doc_type": doc.doc_type, "chunker": DEFAULT_CHUNKER,
             "chunks_indexed": len(chunks), "chunks": [chunk_json(c, doc.filename) for c in chunks]}
 
 
 @app.get("/documents")
 def documents(s=Depends(session)):
     counts: dict[int, dict[str, int]] = {}
-    for doc_id, chunker, n in s.execute(
-            select(Chunk.document_id, Chunk.chunker, func.count()).group_by(Chunk.document_id, Chunk.chunker)):
+    for doc_id, chunker, n in s.execute(select(Chunk.document_id, Chunk.chunker, func.count())
+                                        .where(Chunk.chunker.in_(CHUNKERS)).group_by(Chunk.document_id, Chunk.chunker)):
         counts.setdefault(doc_id, {})[chunker] = n
-    docs = s.scalars(select(Document).order_by(Document.created_at.desc(), Document.id.desc())).all()
+    docs = s.scalars(select(Document).where(CURRENT).order_by(Document.created_at.desc(), Document.id.desc())).all()
     return {"documents": [{
-        "document_id": d.id, "filename": d.filename, "doc_type": d.doc_type, "doc_number": d.doc_number,
+        "document_id": d.id, "filename": d.filename, "doc_type": d.doc_type,
         "status": d.status, "page_count": d.page_count, "uploaded_at": d.created_at.isoformat(),
         "chunkers": counts.get(d.id, {}), "chunk_count": counts.get(d.id, {}).get(DEFAULT_CHUNKER, 0),
     } for d in docs]}
@@ -109,18 +125,15 @@ def documents(s=Depends(session)):
 
 @app.get("/documents/{document_id}/chunks")
 def chunks(document_id: int, chunker: str = DEFAULT_CHUNKER, s=Depends(session)):
-    doc = s.get(Document, document_id)
-    if not doc:
-        raise HTTPException(404, "Document not found")
+    check_chunker(chunker)
+    doc = current_document(s, document_id)
     return {"document_id": doc.id, "filename": doc.filename, "chunker": chunker,
             "chunks": [chunk_json(c, doc.filename) for c in document_chunks(s, doc.id, chunker)]}
 
 
 @app.delete("/documents/{document_id}")
 def delete_document(document_id: int, s=Depends(session)):
-    doc = s.get(Document, document_id)
-    if not doc:
-        raise HTTPException(404, "Document not found")
+    doc = current_document(s, document_id)
     n = s.scalar(select(func.count()).select_from(Chunk).where(Chunk.document_id == doc.id))
     path = Path(doc.storage_uri)
     s.delete(doc)  # pages and chunks cascade; embeddings stay as the cache
@@ -133,10 +146,9 @@ def delete_document(document_id: int, s=Depends(session)):
 
 
 @app.get("/options")
-def options(s=Depends(session)):
-    present = sorted(s.scalars(select(Chunk.chunker).distinct()), key=lambda c: c != DEFAULT_CHUNKER)
+def options():
     return {
-        "chunkers": [{"id": c, "label": CHUNKER_LABELS.get(c, c)} for c in present or [DEFAULT_CHUNKER]],
+        "chunkers": [{"id": c, "label": CHUNKER_LABELS[c]} for c in sorted(CHUNKERS, key=lambda c: c != DEFAULT_CHUNKER)],
         "methods": [{"id": m, "label": METHOD_LABELS[m]} for m in METHODS],
         "defaults": {"chunker": DEFAULT_CHUNKER, "method": DEFAULT_METHOD},
     }
@@ -144,21 +156,34 @@ def options(s=Depends(session)):
 
 @app.post("/ask")
 def ask(request: AskRequest):
-    """Server-Sent Events: `retrieval` (the chunks), then `token` events (the answer), then `done` or `error`."""
+    """Server-Sent Events: `retrieval` (the chunks), then `token` events (the answer), then `done` or `error`.
+
+    For dense_intent, `retrieval` also carries `trace`: the question intent, the filters actually applied
+    and the fallback reason, if any (null for other methods).
+    """
     if request.method not in METHODS:
         raise HTTPException(400, "Unknown retrieval method")
+    check_chunker(request.chunker)
+    if request.document_id:
+        with get_sessionmaker()() as s:
+            current_document(s, request.document_id)
 
     def events():
         started = time.perf_counter()
         try:
             with get_sessionmaker()() as s:
-                hits = METHODS[request.method](s, request.question, request.chunker, ASK_TOP_K, request.document_id)
+                args = (s, request.question, request.chunker, ASK_TOP_K, request.document_id)
+                if request.method == "dense_intent":
+                    hits, trace = dense_intent_traced(*args)
+                else:
+                    hits, trace = METHODS[request.method](*args), None
                 headers = document_headers(s, {h.document_id for h in hits})
             chunks = [{"chunk_id": h.chunk_id, "document_id": h.document_id, "index": i, "page": h.page_start,
                        "section": h.section, "text": h.text, "filename": h.filename, "score": round(h.score, 4),
                        "score_label": SCORE_LABELS[request.method], "header": headers.get(h.document_id, "")}
                       for i, h in enumerate(hits, 1)]
-            yield sse("retrieval", {"chunker": request.chunker, "method": request.method, "chunks": chunks}, started)
+            yield sse("retrieval", {"chunker": request.chunker, "method": request.method, "trace": trace,
+                                    "chunks": chunks}, started)
             for text in stream_answer(chunks, request.question):
                 yield sse("token", {"text": text}, started)
             yield sse("done", {}, started)
