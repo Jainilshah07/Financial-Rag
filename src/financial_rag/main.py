@@ -20,6 +20,7 @@ from financial_rag.search import METHODS, document_headers
 
 UPLOAD_DIR = Path("data/uploads").resolve()
 DEFAULT_CHUNKER = "structure"  # uploads run every chunker; this one is shown first
+DEFAULT_METHOD = "dense_intent"  # best in step 7e / 8c evaluation
 ASK_TOP_K = 5
 CHUNKER_LABELS = {"structure": "Structure-aware", "hybrid": "Docling HybridChunker"}
 METHOD_LABELS = {"dense": "Dense (vector)", "keyword": "Keyword (full-text)", "hybrid": "Hybrid (RRF)",
@@ -45,7 +46,7 @@ def session():
 class AskRequest(BaseModel):
     question: str
     chunker: str = DEFAULT_CHUNKER
-    method: str = "dense"
+    method: str = DEFAULT_METHOD
     document_id: int | None = None
 
 
@@ -137,7 +138,7 @@ def options(s=Depends(session)):
     return {
         "chunkers": [{"id": c, "label": CHUNKER_LABELS.get(c, c)} for c in present or [DEFAULT_CHUNKER]],
         "methods": [{"id": m, "label": METHOD_LABELS[m]} for m in METHODS],
-        "defaults": {"chunker": DEFAULT_CHUNKER, "method": "dense"},
+        "defaults": {"chunker": DEFAULT_CHUNKER, "method": DEFAULT_METHOD},
     }
 
 
