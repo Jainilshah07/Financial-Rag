@@ -2,15 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Popconfirm, Segmented, Spin, Table, Tag, Typography } from 'antd'
 import { ArrowLeftOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
 import { deleteDocument, getDocumentChunks, listDocuments } from '../api'
+import { DOC_TYPES } from '../labels'
 import ChunkGrid from './ChunkGrid'
 import UploadPanel from './UploadPanel'
 
-const DOC_TYPES = { purchase_order: 'Purchase order', invoice: 'Invoice', unknown: 'Unknown' }
 const STATUS_COLORS = { ingested: 'green', pending: 'blue', needs_ocr: 'orange', empty: 'default', failed: 'red' }
 
 function DocumentDetail({ doc, onBack }) {
   // chunkers this document was ingested with, structure-aware first
-  const chunkers = Object.keys(doc.chunkers ?? {}).sort((a, b) => (a === 'structure_ctx' ? -1 : b === 'structure_ctx' ? 1 : 0))
+  const chunkers = Object.keys(doc.chunkers ?? {}).sort((a, b) => (a === 'structure' ? -1 : b === 'structure' ? 1 : 0))
   const [chunker, setChunker] = useState(chunkers[0] ?? null)
   const [chunks, setChunks] = useState(null)
   const [error, setError] = useState(null)
@@ -54,7 +54,6 @@ function DocumentDetail({ doc, onBack }) {
 const makeColumns = (onDelete) => [
   { title: 'Document', dataIndex: 'filename', key: 'filename' },
   { title: 'Type', dataIndex: 'doc_type', key: 'doc_type', width: 140, render: (v) => DOC_TYPES[v] ?? v },
-  { title: 'Number', dataIndex: 'doc_number', key: 'doc_number', width: 170, render: (v) => v ?? '—' },
   {
     title: 'Status',
     dataIndex: 'status',

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Card, Spin, Upload } from 'antd'
 import { InboxOutlined } from '@ant-design/icons'
 import { uploadPdf } from '../api'
+import { DOC_TYPES } from '../labels'
 import ChunkGrid from './ChunkGrid'
 
 export default function UploadPanel({ onUploaded }) {
@@ -41,7 +42,12 @@ export default function UploadPanel({ onUploaded }) {
         <p className="ant-upload-text">Click or drag a PDF here</p>
       </Upload.Dragger>
 
-      {loading && <Spin tip="Chunking and embedding…" style={{ display: 'block', margin: 24 }} />}
+      {loading && (
+        <Spin
+          tip="Extracting with Docling, classifying, chunking and embedding… this can take a minute"
+          style={{ display: 'block', margin: 24 }}
+        />
+      )}
       {error && <Alert type="error" message={error} showIcon style={{ marginTop: 16 }} />}
 
       {result && (
@@ -50,7 +56,7 @@ export default function UploadPanel({ onUploaded }) {
             type="success"
             showIcon
             style={{ margin: '16px 0' }}
-            message={`${result.filename}: ${result.chunks_indexed} chunks indexed`}
+            message={`${result.filename} · ${DOC_TYPES[result.doc_type] ?? result.doc_type}: ${result.chunks_indexed} chunks indexed`}
             action={
               <Button size="small" onClick={() => setShowChunks((v) => !v)}>
                 {showChunks ? 'Hide chunks' : 'Show chunks'}

@@ -1,6 +1,6 @@
 import { Card, Col, Row, Tag, Typography } from 'antd'
 
-export const TYPE_COLORS = { clause: 'green', table: 'gold', header: 'geekblue' }
+export const TYPE_COLORS = { clause: 'green', table: 'gold', text: 'cyan' }
 
 function ChunkCard({ chunk, showSource }) {
   return (

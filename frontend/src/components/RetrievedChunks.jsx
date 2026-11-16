@@ -58,7 +58,7 @@ function Placeholder({ children }) {
   )
 }
 
-export default function RetrievedChunks({ run, citedPages }) {
+export default function RetrievedChunks({ run, cited }) {
   const [open, setOpen] = useState(null)
   const { phase, chunks } = run
 
@@ -87,7 +87,7 @@ export default function RetrievedChunks({ run, citedPages }) {
             key={c.chunk_id}
             chunk={c}
             percent={Math.round((c.score_label === 'cosine' ? c.score : c.score / max) * 100)}
-            cited={citedPages.has(c.page)}
+            cited={cited.has(`${c.filename}#${c.page}`)}
             delay={i * 120}
             onOpen={() => setOpen(c)}
           />
@@ -101,7 +101,7 @@ export default function RetrievedChunks({ run, citedPages }) {
       <Card
         title={`Retrieved chunks${chunks ? ` (${chunks.length})` : ''}`}
         extra={
-          citedPages.size > 0 && <Typography.Text type="secondary">Blue outline = page cited in answer</Typography.Text>
+          cited.size > 0 && <Typography.Text type="secondary">Blue outline = file and page cited in answer</Typography.Text>
         }
         style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto' } }}
@@ -121,6 +121,15 @@ export default function RetrievedChunks({ run, citedPages }) {
               <ChunkTags chunk={open} />
             </div>
             <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>{open.text}</Typography.Paragraph>
+            {open.header && (
+              <>
+                <Typography.Title level={5}>Document header</Typography.Title>
+                <Typography.Paragraph type="secondary">
+                  Sent to the model once, above this document's passages, so it knows which document they come from.
+                </Typography.Paragraph>
+                <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{open.header}</Typography.Paragraph>
+              </>
+            )}
           </>
         )}
       </Drawer>

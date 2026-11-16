@@ -1,7 +1,24 @@
 import { Card, Collapse, Steps, Typography } from 'antd'
 import { LoadingOutlined } from '@ant-design/icons'
+import { DOC_TYPES } from '../labels'
 
 const formatMs = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
+const typeName = (t) => DOC_TYPES[t] ?? t
+
+// What dense_intent actually did (from the API's trace). A filter is listed only if it produced the results.
+function traceLines(trace) {
+  if (!trace) return []
+  if (trace.intent == null) return ['One document selected: no intent classification, no filters']
+  const filters = [
+    trace.type_filter && `document type = ${typeName(trace.type_filter)}`,
+    trace.number_filter && 'document number',
+  ].filter(Boolean)
+  return [
+    `Question intent: ${trace.intent_failed ? 'classification failed' : typeName(trace.intent)}`,
+    `Filters applied: ${filters.join(', ') || 'none'}`,
+    ...(trace.fallback ? [`Fallback: no document-type filter (${trace.fallback.replaceAll('_', ' ')})`] : []),
+  ]
+}
 
 // Derive the two pipeline steps from the state of the current run.
 function buildSteps(run, strategyLabel) {
@@ -11,7 +28,7 @@ function buildSteps(run, strategyLabel) {
 
   const retrieve = !chunks
     ? { status: phase === 'idle' ? 'wait' : failed ? 'error' : 'active', detail: `${strategyLabel || 'Search'}…` }
-    : { status: 'done', detail: `${strategyLabel} · ${chunks.length} chunks`, ms: retrievalMs }
+    : { status: 'done', detail: `${strategyLabel} · ${chunks.length} chunks`, lines: traceLines(run.trace), ms: retrievalMs }
 
   let generate
   if (!chunks) generate = { status: 'wait', detail: 'LLM answers from the chunks' }
@@ -42,7 +59,16 @@ export default function PipelinePanel({ run, strategyLabel }) {
         )}
       </span>
     ),
-    description: <Typography.Text type="secondary">{s.detail}</Typography.Text>,
+    description: (
+      <>
+        <Typography.Text type="secondary">{s.detail}</Typography.Text>
+        {s.lines?.map((line) => (
+          <div key={line}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>{line}</Typography.Text>
+          </div>
+        ))}
+      </>
+    ),
   }))
 
   return (
