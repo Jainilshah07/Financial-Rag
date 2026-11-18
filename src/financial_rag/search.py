@@ -18,7 +18,7 @@ from docling_core.types.doc import DoclingDocument
 from sqlalchemy import Text, cast, func, select
 from sqlalchemy.dialects.postgresql import TSQUERY
 
-from financial_rag.chunkers import doc_header
+from financial_rag.chunkers import answer_header, doc_header
 from financial_rag.db import Chunk, Document, Embedding, get_sessionmaker
 from financial_rag.embeddings import MODEL_KEY, embed_query
 
@@ -167,16 +167,18 @@ METHODS = {"dense": dense, "keyword": keyword, "hybrid": hybrid, "rerank": reran
 _headers: dict[tuple, str] = {}
 
 
-def document_headers(s, document_ids: set[int]) -> dict[int, str]:
-    """Each document's header for the answer context: doc_header() on the stored Docling JSON and type, exactly
-    as at ingestion, so retrieval and generation see the same identity. Cached per (document, type, content)."""
+def document_headers(s, document_ids: set[int], answer: bool = False) -> dict[int, str]:
+    """Each document's header from the stored Docling JSON and type: doc_header(), exactly as embedded at
+    ingestion, or with answer=True the longer answer_header() the answer model sees. Cached per
+    (document, type, content, kind)."""
     out = {}
     for doc_id, doc_type, content_hash in s.execute(
             select(Document.id, Document.doc_type, Document.content_hash).where(Document.id.in_(document_ids))):
-        key = (doc_id, doc_type, content_hash)
+        key = (doc_id, doc_type, content_hash, answer)
         if key not in _headers:
             data = s.scalar(select(Document.docling_json).where(Document.id == doc_id))
-            _headers[key] = doc_header(DoclingDocument.model_validate(data), doc_type) if data else ""
+            build = answer_header if answer else doc_header
+            _headers[key] = build(DoclingDocument.model_validate(data), doc_type) if data else ""
         out[doc_id] = _headers[key]
     return out
 

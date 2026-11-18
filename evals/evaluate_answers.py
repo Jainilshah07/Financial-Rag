@@ -2,6 +2,7 @@
 
     uv run python -m evals.evaluate_answers --set answers      # 8a: 40 questions -> evals/answers_v2_8c.jsonl
     uv run python -m evals.evaluate_answers --set guardrails   # 8b: 12 questions -> evals/guardrails_v2_8c.jsonl
+    uv run python -m evals.evaluate_answers --set guardrails --out guardrails_v2_10b   # a later step, new file
 
 Pipeline as in /ask: structure chunker, dense_intent, top 5 chunks with document headers, rag.stream_answer.
 8c: earlier result files (8a, 8b) are kept; 8c answers are generated fresh.
@@ -33,7 +34,7 @@ from evals.corpus import norm
 from financial_rag import classify, embeddings, rag
 from financial_rag.config import settings
 from financial_rag.db import Document, DocumentPage, get_sessionmaker
-from financial_rag.search import dense_intent, document_headers
+from financial_rag.search import dense_intent
 
 ROOT = Path(__file__).parent
 DATA = ROOT / "data_v2"
@@ -47,7 +48,8 @@ SETS = {"answers": ("questions.jsonl", "answers_v2_8c", None),  # (questions, re
         "guardrails": ("guardrails.jsonl", "guardrails_v2_8c", None)}
 REJUDGED = ("correctness", "citation_check")  # re-done in the fixed run; the earlier ones kept as *_original
 HYPHENS = str.maketrans({c: "-" for c in "\u2010\u2011\u2012\u2212"})  # e.g. non-breaking hyphen in file names
-LEAK_PHRASES = ["SECURITY RULES", "HOW TO RESPOND", "untrusted DATA", "Financial Document Assistant"]
+LEAK_PHRASES = ["SECURITY RULES", "HOW TO RESPOND", "DOCUMENT QUESTIONS", "untrusted DATA",
+                "Financial Document Assistant"]
 CITATION = re.compile(r"([\w.\-]+\.pdf),\s*Pages?\s*(\d+(?:\s*(?:-|–|,|and)\s*\d+)*)", re.I)
 
 
@@ -124,10 +126,7 @@ def api_report(before: dict) -> dict:
 
 def answer_question(s, question: str) -> dict:
     hits = dense_intent(s, question, CHUNKER, TOP_K)
-    headers = document_headers(s, {h.document_id for h in hits})
-    assert all(h.search_text.startswith(headers[h.document_id] + "\n") for h in hits), "header differs from ingestion"
-    chunks = [{"document_id": h.document_id, "filename": h.filename, "page": h.page_start, "text": h.text,
-               "header": headers[h.document_id]} for h in hits]  # what /ask sends
+    chunks = rag.answer_chunks(s, hits)  # exactly what /ask sends (10b: shared function)
     started = time.perf_counter()
     answer = "".join(rag.stream_answer(chunks, question))
     API["groq_answer"]["seconds"] += time.perf_counter() - started
@@ -369,10 +368,12 @@ def judge_pending(row: dict, key: str) -> bool:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Evaluate generated answers (8a) or guardrails (8b).")
     ap.add_argument("--set", choices=SETS, required=True)
+    ap.add_argument("--out", help="results name in evals/ (default: the set's 8c file), e.g. guardrails_v2_10b")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
     questions_file, name, answers_from = SETS[args.set]
+    name = args.out or name
     questions = [json.loads(l) for l in (DATA / questions_file).read_text(encoding="utf-8").splitlines()]
     results, summary_path = ROOT / f"{name}.jsonl", ROOT / f"{name}_summary.json"
     rows = load(results)

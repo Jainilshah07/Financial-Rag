@@ -15,8 +15,8 @@ from sqlalchemy import func, select
 
 from financial_rag.db import Chunk, Document, get_sessionmaker
 from financial_rag.ingest import CHUNKERS, run as ingest, sha256
-from financial_rag.rag import stream_answer
-from financial_rag.search import METHODS, dense_intent_traced, document_headers
+from financial_rag.rag import answer_chunks, stream_answer
+from financial_rag.search import METHODS, dense_intent_traced
 
 UPLOAD_DIR = Path("data/uploads").resolve()
 DEFAULT_CHUNKER = "structure"  # uploads run every chunker; this one is shown first
@@ -177,11 +177,7 @@ def ask(request: AskRequest):
                     hits, trace = dense_intent_traced(*args)
                 else:
                     hits, trace = METHODS[request.method](*args), None
-                headers = document_headers(s, {h.document_id for h in hits})
-            chunks = [{"chunk_id": h.chunk_id, "document_id": h.document_id, "index": i, "page": h.page_start,
-                       "section": h.section, "text": h.text, "filename": h.filename, "score": round(h.score, 4),
-                       "score_label": SCORE_LABELS[request.method], "header": headers.get(h.document_id, "")}
-                      for i, h in enumerate(hits, 1)]
+                chunks = answer_chunks(s, hits, SCORE_LABELS[request.method])
             yield sse("retrieval", {"chunker": request.chunker, "method": request.method, "trace": trace,
                                     "chunks": chunks}, started)
             for text in stream_answer(chunks, request.question):

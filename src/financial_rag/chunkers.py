@@ -27,6 +27,9 @@ HEADER_TOKENS = 64  # document header added to every chunk's search_text
 HEADER_ITEM_TOKENS = 24  # longer page-1 texts (addresses, paragraphs) are left out of the header
 ITEMS = 3  # line-item descriptions added to the header: people ask about "the A4 paper order"
 ITEMS_TOKENS = 32
+ANSWER_HEADER_TOKENS = 192  # the longer header shown to the answer model only (never embedded)
+ANSWER_ITEM_TOKENS = 48  # page-1 texts up to this size go into the answer header
+ANSWER_TABLE_ROWS = 8  # larger page-1 tables are line items, not identity
 
 
 @dataclass
@@ -98,6 +101,35 @@ def doc_header(doc: DoclingDocument, doc_type: str | None = None) -> str:
             if used < HEADER_TOKENS:
                 parts.append(line)
                 used += count_tokens(line)
+    items = item_names(doc)
+    header = " | ".join(parts + ([f"Items: {items}"] if items else []))
+    return "\n".join(filter(None, [type_line(doc_type), header]))
+
+
+def answer_header(doc: DoclingDocument, doc_type: str | None = None) -> str:
+    """The header the answer model sees (search_text keeps doc_header): document type, then every page-1
+    heading, short text and small table in reading order (identity, parties, dates, references, totals) until
+    ANSWER_HEADER_TOKENS, then the first item names. Skips the line-items table (the largest) and clause lists.
+    No field extraction: it works the same for any layout.
+    """
+    largest = max(doc.tables, key=lambda t: t.data.num_rows * t.data.num_cols, default=None)
+    parts, used = [], 0
+    for item, _ in doc.iterate_items():
+        if not item.prov or item.prov[0].page_no != 1 or item.label == DocItemLabel.LIST_ITEM:
+            continue
+        if isinstance(item, TableItem):
+            if item.self_ref == getattr(largest, "self_ref", None) or item.data.num_rows > ANSWER_TABLE_ROWS:
+                continue
+            lines = table_rows(item)
+        elif isinstance(item, TextItem) and count_tokens(item.text) <= ANSWER_ITEM_TOKENS:
+            lines = [item.text]
+        else:
+            continue
+        for line in lines:
+            tokens = count_tokens(line)
+            if used + tokens <= ANSWER_HEADER_TOKENS:
+                parts.append(line)
+                used += tokens
     items = item_names(doc)
     header = " | ".join(parts + ([f"Items: {items}"] if items else []))
     return "\n".join(filter(None, [type_line(doc_type), header]))

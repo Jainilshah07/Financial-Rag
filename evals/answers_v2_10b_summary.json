@@ -1,0 +1,256 @@
+{
+ "label": "10b: answer header, ADR-003, reference date, assumptions, completeness",
+ "questions_file": "questions_real_corrected.jsonl",
+ "seeded_from": null,
+ "questions": 40,
+ "judgments": {
+  "completed": 40,
+  "pending": 0,
+  "failed": 0
+ },
+ "overall": {
+  "questions": 40,
+  "passed": 24,
+  "answer_correct": 24,
+  "refused": 4,
+  "evidence_complete": 16,
+  "answer_evidence_complete": 16,
+  "evidence_recall_mean": 0.622,
+  "evidence_retrievable_complete": 33,
+  "needs_more_than_5_documents": 19,
+  "amount_exact": "5/13",
+  "count_exact": "3/4",
+  "set": {
+   "exact": "2/6",
+   "precision_mean": 0.833,
+   "recall_mean": 0.595
+  },
+  "assumptions_stated": "3/9"
+ },
+ "by_kind": {
+  "lookup": {
+   "questions": 6,
+   "passed": 5,
+   "answer_correct": 5,
+   "refused": 0,
+   "evidence_complete": 6,
+   "answer_evidence_complete": 6,
+   "evidence_recall_mean": 1.0,
+   "evidence_retrievable_complete": 6,
+   "needs_more_than_5_documents": 0,
+   "amount_exact": "1/2",
+   "count_exact": "1/1"
+  },
+  "clause": {
+   "questions": 5,
+   "passed": 5,
+   "answer_correct": 5,
+   "refused": 0,
+   "evidence_complete": 5,
+   "answer_evidence_complete": 5,
+   "evidence_recall_mean": 1.0,
+   "evidence_retrievable_complete": 5,
+   "needs_more_than_5_documents": 0
+  },
+  "filter": {
+   "questions": 8,
+   "passed": 6,
+   "answer_correct": 6,
+   "refused": 1,
+   "evidence_complete": 4,
+   "answer_evidence_complete": 4,
+   "evidence_recall_mean": 0.716,
+   "evidence_retrievable_complete": 7,
+   "needs_more_than_5_documents": 4,
+   "amount_exact": "1/2",
+   "set": {
+    "exact": "1/1",
+    "precision_mean": 1.0,
+    "recall_mean": 1.0
+   },
+   "assumptions_stated": "0/1"
+  },
+  "aggregate": {
+   "questions": 8,
+   "passed": 2,
+   "answer_correct": 2,
+   "refused": 0,
+   "evidence_complete": 0,
+   "answer_evidence_complete": 0,
+   "evidence_recall_mean": 0.292,
+   "evidence_retrievable_complete": 4,
+   "needs_more_than_5_documents": 8,
+   "amount_exact": "2/8",
+   "assumptions_stated": "2/6"
+  },
+  "list": {
+   "questions": 7,
+   "passed": 3,
+   "answer_correct": 3,
+   "refused": 0,
+   "evidence_complete": 1,
+   "answer_evidence_complete": 1,
+   "evidence_recall_mean": 0.406,
+   "evidence_retrievable_complete": 6,
+   "needs_more_than_5_documents": 5,
+   "count_exact": "2/2",
+   "set": {
+    "exact": "1/5",
+    "precision_mean": 0.8,
+    "recall_mean": 0.514
+   },
+   "assumptions_stated": "1/2"
+  },
+  "compare": {
+   "questions": 6,
+   "passed": 3,
+   "answer_correct": 3,
+   "refused": 3,
+   "evidence_complete": 0,
+   "answer_evidence_complete": 0,
+   "evidence_recall_mean": 0.494,
+   "evidence_retrievable_complete": 5,
+   "needs_more_than_5_documents": 2,
+   "amount_exact": "1/1",
+   "count_exact": "0/1"
+  }
+ },
+ "by_expected": {
+  "answer": {
+   "questions": 30,
+   "passed": 21,
+   "answer_correct": 21,
+   "refused": 3,
+   "evidence_complete": 16,
+   "answer_evidence_complete": 16,
+   "evidence_recall_mean": 0.712,
+   "evidence_retrievable_complete": 26,
+   "needs_more_than_5_documents": 9,
+   "amount_exact": "4/7",
+   "count_exact": "2/3",
+   "set": {
+    "exact": "2/5",
+    "precision_mean": 0.8,
+    "recall_mean": 0.6
+   }
+  },
+  "answer_with_assumption": {
+   "questions": 9,
+   "passed": 2,
+   "answer_correct": 2,
+   "refused": 1,
+   "evidence_complete": 0,
+   "answer_evidence_complete": 0,
+   "evidence_recall_mean": 0.326,
+   "evidence_retrievable_complete": 6,
+   "needs_more_than_5_documents": 9,
+   "amount_exact": "1/6",
+   "count_exact": "1/1",
+   "set": {
+    "exact": "0/1",
+    "precision_mean": 1.0,
+    "recall_mean": 0.571
+   },
+   "assumptions_stated": "3/9"
+  },
+  "clarify_or_all": {
+   "questions": 1,
+   "passed": 1,
+   "answer_correct": 1,
+   "refused": 0,
+   "evidence_complete": 0,
+   "answer_evidence_complete": 0,
+   "evidence_recall_mean": 0.571,
+   "evidence_retrievable_complete": 1,
+   "needs_more_than_5_documents": 1
+  }
+ },
+ "outcomes": {
+  "wrong": 7,
+  "correct": 22,
+  "partial": 6,
+  "not_found": 4,
+  "clarified": 1
+ },
+ "failures": {
+  "calculation_error": 1,
+  "correct": 24,
+  "document_missing": 15
+ },
+ "citations": {
+  "valid": 45,
+  "incorrect": 4,
+  "total": 49,
+  "valid_rate": 0.918,
+  "answers_missing_citations": 3
+ },
+ "groundedness": {
+  "grounded": 25,
+  "ungrounded": 14,
+  "no_claims": 1
+ },
+ "intent": {
+  "purchase_order": 19,
+  "invoice": 15,
+  "unknown": 1,
+  "either": 5
+ },
+ "type_filter_applied": 34,
+ "mentor": {
+  "r12": {
+   "question": "Who had ordered packaging tape in october?",
+   "answer": "Shreeji Infra Projects Pvt Ltd placed the order for the packaging tape on 14‑10‑2026 (the PO date) (po‑po‑2026‑27‑0208.pdf, Page 1).",
+   "failure": "correct",
+   "evidence": "4/4"
+  },
+  "r20": {
+   "question": "What was the Q3 revenue",
+   "answer": "I could not find any Q3 (01‑10‑2026 to 31‑12‑2026) revenue in the uploaded documents. The invoices provided are dated 27‑08‑2026 (invoice‑kos‑26‑27‑0768.pdf) [Page 1], 18‑06‑2026 (invoice‑kos‑26‑27‑0702.pdf) [Page 1], and 23‑09‑2026 (invoice‑nit‑2026‑0611.pdf) [Page 1]; none fall within Q3. The documents record purchases (spend), not revenue.",
+   "failure": "document_missing",
+   "evidence": "2/10"
+  }
+ },
+ "judge": {
+  "model": "qwen/qwen3.8-27b",
+  "attempts": 119,
+  "failed_attempts": 39,
+  "retries": 39,
+  "failed_calls": 0
+ },
+ "api_runs": [
+  {
+   "elapsed_seconds": 3047.0,
+   "groq_answer": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 70.0,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 35.7,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 0,
+    "failed_calls": 0
+   },
+   "groq_judge": {
+    "attempts": 119,
+    "failed_attempts": 39,
+    "seconds": 86.4,
+    "retries": 39,
+    "failed_calls": 0,
+    "stopped_daily_quota": false
+   },
+   "gemini_embedding": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 25.0,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  }
+ ]
+}
