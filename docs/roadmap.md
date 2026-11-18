@@ -15,6 +15,7 @@ One step at a time; each step is reviewed before the next starts.
 | 7 | Retrieval improvements: keyword search fix, reranker, metadata filters | Why hybrid underperformed; reranking | Done (7a–7e) |
 | 8 | Generation: grounded answers, page citations, guardrails, answer-quality checks | Faithfulness, citations | Done (8a–8c) |
 | 9 | API and UI on the new pipeline | Transparency of retrieval decisions | Done (9a, 9b) |
+| 10 | Real users' questions; toward hybrid RAG + structured SQL | Realistic evaluation, where RAG stops | 10a, 10b done; 10c design awaiting schema review |
 
 **Decisions.** No field extraction: each document gets a header (LLM type, page-1 lines, item names) used for
 search and, since 8c, in the answer context. Default: our structure-aware chunker + `dense_intent` (number filter +
@@ -259,6 +260,81 @@ baseline: HybridChunker (Docling's default) is the one to beat. Current design: 
   which marked page 1 of every document); same parsing as the eval (checked on 52 answers).
 - Pipeline panel shows intent, applied filters and any fallback; a filter is shown only if it was applied.
   The chunk drawer shows the document header sent to the model.
+
+## Step 10: real users' questions, toward hybrid RAG + structured SQL
+
+Mentor feedback: "Think how real world users would ask questions." The app becomes a hybrid of RAG and structured
+SQL; the benchmark measures that progress and is not a score to maximise.
+
+| Sub-step | Scope | Status |
+|---|---|---|
+| 10a | Realistic question set and baseline | Done |
+| 10b | Bounded RAG improvements: answer header, reference date, ADR-003, assumptions, completeness | Done |
+| 10c | Structured extraction: document fields, line items, provenance, validation, PO/invoice linking | Design proposed, awaiting schema review |
+| 10d | Router and query plan compiled to SQL (ADR-004) | Not started |
+| 10e | Answers from SQL rows, number verifier, combined route | Not started |
+
+**10a. Realistic question set** (`evals/questions_real.py` → `evals/data_v2/questions_real.jsonl`;
+`evals/evaluate_real.py`)
+
+- 40 questions worded as users ask (short vendor names, "bill", month names, quarters, "so far", "overdue"), six
+  kinds: lookup, clause, filter, aggregate, list, compare. Gold answers computed from the generator's data; every
+  evidence snippet located in the PDFs. Reference date 31-10-2026. Expected behaviour per question: answer,
+  answer with a stated assumption, or clarify / answer every option.
+- Evaluator: pipeline as `/ask`; the Qwen judge reports verdict, value, GST basis, listed items, missing required
+  items and assumptions; code scores values, counts and sets. Evidence is split into answer and identity groups;
+  one failure label per question (document_missing, field_missing, evidence_not_retrievable, ...).
+- First run (`answers_v2_10a*`, kept as it was): 17/39 judged (r17 judge failure).
+- Corrections (`questions_real_corrected.py` → `questions_real_corrected.jsonl`): r10 "buyer pays freight" is
+  enough; r25 the PO number is enough; r22 Q2 amounts from the PO or its invoice (membership by PO date); identity
+  groups; judge replies mapped to ids in code. Answers not regenerated; only r17 re-judged.
+- **Measured, corrected baseline** (`answers_v2_10a_corrected*`): **18/40** passed, answer correct 19, refused 9.
+  By kind: lookup 5/6, clause 5/5, filter 3/8, aggregate 1/8, list 2/7, compare 2/6. Failures: document_missing 17,
+  field_missing 3, evidence_not_retrievable 1, assumption_missing 1. Assumptions stated 0/9.
+
+**10b. Bounded RAG improvements** (`answers_v2_10b*`, `guardrails_v2_10b*`)
+
+- Answer header (`chunkers.answer_header`, up to 192 tokens): page-1 text, small page-1 tables (PO number and date),
+  item names. Used only in the answer context; the search header, embeddings, retrieval and database are unchanged.
+- `REFERENCE_DATE` setting (`config.today()`; real date by default, 31-10-2026 in the evaluation).
+- Prompt rules: fiscal year April–March and its quarters, with the date range stated (ADR-003); POs and invoices
+  are our spend, not revenue; state the assumption when a question has more than one reading; never present a
+  total, count, ranking or list over retrieved passages as complete.
+- `rag.answer_chunks()` builds the context for both `/ask` and the evaluators.
+- **Measured (judge):** **24/40** passed (18), refused 4 (9), assumptions stated 3/9 (0/9), counts 3/4 (2/4),
+  sets exact 2/6 (1/6), amounts 5/13 (5/13). By kind: lookup 5/6, clause 5/5, filter 6/8, aggregate 2/8,
+  list 3/7, compare 3/6. Failures: document_missing 15, calculation_error 1. Ungrounded 10 → 14.
+  **Guardrails 12/12** (8c: 12/12).
+- **Manual review** (not measured):
+  - **23/40**: r28 is a judge false pass (the answer says 1 PO in Q2; the gold is 4).
+  - Gains: r12, r16 (PO date now in the header), r37, r13, r21 (states it covers only the documents shown), r19
+    (asks which Ganesh order, with both totals).
+  - Regressions: r01 gives the GI pipe line total, not "not found" (see the gold revision below); r17 resolves
+    "last month" correctly but the September PO isn't retrieved, so it says there is none.
+  - 11 of the 14 aggregate and list answers (r20–r33) say they cover only the documents shown. Misses: r20
+    ("none in the uploaded documents"), r29 (complete only because both invoices were retrieved), r30 (one
+    invoice as the whole answer). r23 and r32 open with a wrong conclusion, then the caveat.
+  - Side effects: bold markdown in 5 answers (3 before) despite "plain text only"; r19's clarification ends with
+    the off-topic sentence. Part of the ungrounded rise is the checker: it sees passages only, so facts from the
+    prompt rules (fiscal year, spend not revenue) count as unsupported.
+- **Gold revision after 10b** (`questions_real_revised.py` → `questions_real_revised.jsonl`, now used by
+  `evaluate_real.py`; 10a and 10b keep the corrected gold, recorded in their summaries, and are not rescored):
+  - r01 "the Bharat Steel order for GI pipes" can mean the GI pipe line or the whole PO. Accepted: ₹3,62,000 (line,
+    printed), ₹5,59,000 and ₹6,59,620 (PO, printed), ₹4,27,160 (line with 18% GST, calculated, not printed; counts
+    only when the answer says it includes GST). Checked offline: under this gold, 10b's stored r01 answer would pass.
+  - r23 checked against the generator data and all 8 invoice PDFs: Nimbus ₹9,06,240 vs Ganesh ₹8,95,180 including
+    GST; Ganesh ₹7,90,000 vs Nimbus ₹7,68,000 before GST. Gold unchanged.
+- **Remaining limits (multi-document retrieval):** 19 of 40 questions need more than 5 documents, and retrieval
+  returns 5 chunks. No aggregate question had all its answer evidence in context in either run (0/8);
+  document_missing is still the largest failure (15). Compare questions need a PO and its invoice together, but the
+  intent filter keeps one type (r36) or one side isn't retrieved (r35, r40). Caveats make partial answers honest,
+  not correct: totals, counts and rankings over all documents need structured data (10c–10e).
+
+**10c. Structured extraction** (design proposed, awaiting schema review; not started)
+
+- Tables: parties, financial_documents, line_items, tax_lines, field_sources (provenance), extraction_runs.
+- The model points to values, code copies them from the document; validation (sub total + tax = total), PO/invoice
+  linking, and the layout C defects (e.g. invoice 0768's unlabelled date).
 
 **Out of scope for Goal 1.** Structured fields in SQL (unless steps above overlap), query routing,
 PO/invoice mismatch detection, hardening (Docker, CI eval gate).
