@@ -1,0 +1,238 @@
+{
+ "questions": 40,
+ "judgments": {
+  "completed": 39,
+  "pending": 0,
+  "failed": 1
+ },
+ "overall": {
+  "questions": 39,
+  "passed": 17,
+  "answer_correct": 18,
+  "refused": 9,
+  "evidence_complete": 6,
+  "evidence_recall_mean": 0.512,
+  "evidence_retrievable_complete": 25,
+  "needs_more_than_5_documents": 18,
+  "amount_exact": "5/13",
+  "count_exact": "2/4",
+  "set": {
+   "exact": "1/6",
+   "precision_mean": 0.333,
+   "recall_mean": 0.25
+  },
+  "assumptions_stated": "0/8"
+ },
+ "by_kind": {
+  "lookup": {
+   "questions": 6,
+   "passed": 5,
+   "answer_correct": 5,
+   "refused": 1,
+   "evidence_complete": 3,
+   "evidence_recall_mean": 0.82,
+   "evidence_retrievable_complete": 5,
+   "needs_more_than_5_documents": 0,
+   "amount_exact": "1/2",
+   "count_exact": "1/1"
+  },
+  "clause": {
+   "questions": 5,
+   "passed": 4,
+   "answer_correct": 4,
+   "refused": 0,
+   "evidence_complete": 1,
+   "evidence_recall_mean": 0.76,
+   "evidence_retrievable_complete": 5,
+   "needs_more_than_5_documents": 0
+  },
+  "filter": {
+   "questions": 7,
+   "passed": 3,
+   "answer_correct": 3,
+   "refused": 3,
+   "evidence_complete": 1,
+   "evidence_recall_mean": 0.546,
+   "evidence_retrievable_complete": 5,
+   "needs_more_than_5_documents": 3,
+   "amount_exact": "1/2",
+   "set": {
+    "exact": "0/1",
+    "precision_mean": 0.0,
+    "recall_mean": 0.0
+   }
+  },
+  "aggregate": {
+   "questions": 8,
+   "passed": 1,
+   "answer_correct": 2,
+   "refused": 2,
+   "evidence_complete": 0,
+   "evidence_recall_mean": 0.276,
+   "evidence_retrievable_complete": 4,
+   "needs_more_than_5_documents": 8,
+   "amount_exact": "2/8",
+   "assumptions_stated": "0/6"
+  },
+  "list": {
+   "questions": 7,
+   "passed": 2,
+   "answer_correct": 2,
+   "refused": 0,
+   "evidence_complete": 1,
+   "evidence_recall_mean": 0.379,
+   "evidence_retrievable_complete": 4,
+   "needs_more_than_5_documents": 5,
+   "count_exact": "1/2",
+   "set": {
+    "exact": "1/5",
+    "precision_mean": 0.4,
+    "recall_mean": 0.3
+   },
+   "assumptions_stated": "0/2"
+  },
+  "compare": {
+   "questions": 6,
+   "passed": 2,
+   "answer_correct": 2,
+   "refused": 3,
+   "evidence_complete": 0,
+   "evidence_recall_mean": 0.429,
+   "evidence_retrievable_complete": 2,
+   "needs_more_than_5_documents": 2,
+   "amount_exact": "1/1",
+   "count_exact": "0/1"
+  }
+ },
+ "by_expected": {
+  "answer": {
+   "questions": 30,
+   "passed": 16,
+   "answer_correct": 16,
+   "refused": 8,
+   "evidence_complete": 6,
+   "evidence_recall_mean": 0.573,
+   "evidence_retrievable_complete": 20,
+   "needs_more_than_5_documents": 9,
+   "amount_exact": "4/7",
+   "count_exact": "2/3",
+   "set": {
+    "exact": "1/5",
+    "precision_mean": 0.4,
+    "recall_mean": 0.3
+   }
+  },
+  "answer_with_assumption": {
+   "questions": 8,
+   "passed": 0,
+   "answer_correct": 1,
+   "refused": 1,
+   "evidence_complete": 0,
+   "evidence_recall_mean": 0.296,
+   "evidence_retrievable_complete": 5,
+   "needs_more_than_5_documents": 8,
+   "amount_exact": "1/6",
+   "count_exact": "0/1",
+   "set": {
+    "exact": "0/1",
+    "precision_mean": 0.0,
+    "recall_mean": 0.0
+   },
+   "assumptions_stated": "0/8"
+  },
+  "clarify_or_all": {
+   "questions": 1,
+   "passed": 1,
+   "answer_correct": 1,
+   "refused": 0,
+   "evidence_complete": 0,
+   "evidence_recall_mean": 0.429,
+   "evidence_retrievable_complete": 0,
+   "needs_more_than_5_documents": 1
+  }
+ },
+ "outcomes": {
+  "not_found": 9,
+  "correct": 16,
+  "partial": 8,
+  "wrong": 6
+ },
+ "failures": {
+  "evidence_not_retrievable": 1,
+  "correct": 17,
+  "answer_error": 1,
+  "evidence_incomplete": 18,
+  "assumption_missing": 1,
+  "wrong_documents": 1
+ },
+ "citations": {
+  "valid": 37,
+  "incorrect": 2,
+  "total": 39,
+  "valid_rate": 0.949,
+  "answers_missing_citations": 4
+ },
+ "groundedness": {
+  "no_claims": 8,
+  "grounded": 22,
+  "ungrounded": 10
+ },
+ "intent": {
+  "purchase_order": 20,
+  "invoice": 15,
+  "unknown": 1,
+  "either": 4
+ },
+ "type_filter_applied": 35,
+ "mentor": {
+  "r12": {
+   "question": "Who had ordered packaging tape in october?",
+   "answer": "I could not find any information about who ordered packaging tape in October in the uploaded documents.",
+   "failure": "evidence_incomplete",
+   "evidence": "3/4"
+  },
+  "r20": {
+   "question": "What was the Q3 revenue",
+   "answer": "I could not find the Q3 revenue in the uploaded documents.",
+   "failure": "evidence_incomplete",
+   "evidence": "2/10"
+  }
+ },
+ "judge_model": "qwen/qwen3.8-27b",
+ "api_runs": [
+  {
+   "elapsed_seconds": 2719.9,
+   "groq_answer": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 47.1,
+    "note": "attempts seen by LangChain; HTTP retries inside the Groq SDK are not visible"
+   },
+   "groq_intent": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 26.6,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 0,
+    "failed_calls": 0
+   },
+   "groq_judge": {
+    "attempts": 112,
+    "failed_attempts": 33,
+    "seconds": 53.0,
+    "retries": 32,
+    "failed_calls": 1,
+    "stopped_daily_quota": false
+   },
+   "gemini_embedding": {
+    "attempts": 40,
+    "failed_attempts": 0,
+    "seconds": 22.1,
+    "calls": 40,
+    "retries": 0,
+    "cache_hits": 0
+   }
+  }
+ ]
+}
